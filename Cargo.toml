@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "afl_scripts",
+    "find_literal",
+]
