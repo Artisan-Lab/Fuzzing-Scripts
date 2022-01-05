@@ -18,6 +18,10 @@ use std::time::Instant;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
+// const CRATES_IO_DIR: &'static str = "github.com-1ecc6299db9ec823/";
+const USTC_MIRROR_DIR: &'static str = "mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/";
+const USER_HOME: &'static str = "/home/jjf/";
+
 lazy_static! {
     static ref CRATES: HashSet<&'static str> = {
         let mut m = HashSet::new();
@@ -51,33 +55,34 @@ lazy_static! {
 }
 
 lazy_static! {
-    static ref CRATE_SRC_DIR: HashMap<&'static str, &'static str> = {
+    static ref CRATE_SRC_DIR: HashMap<&'static str, String> = {
         let mut m = HashMap::new();
-        m.insert("url", "/home/jjf/.cargo/registry/src/github.com-1ecc6299db9ec823/url-2.2.0");
-        m.insert("regex-syntax", "/home/jjf/.cargo/registry/src/github.com-1ecc6299db9ec823/regex-syntax-0.6.22");
-        m.insert("semver-parser", "/home/jjf/.cargo/registry/src/github.com-1ecc6299db9ec823/semver-parser-0.10.2");
-        m.insert("bat", "/home/jjf/bat");
-        m.insert("xi-core-lib", "/home/jjf/xi-editor/rust");
-        m.insert("clap", "/home/jjf/.cargo/registry/src/github.com-1ecc6299db9ec823/clap-2.33.3");
-        m.insert("regex", "/home/jjf/.cargo/registry/src/github.com-1ecc6299db9ec823/regex-1.4.3");
-        m.insert("serde_json", "/home/jjf/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_json-1.0.61");
-        m.insert("tui", "/home/jjf/tui-rs");
-        m.insert("semver", "/home/jjf/.cargo/registry/src/github.com-1ecc6299db9ec823/semver-0.11.0");
-        m.insert("http", "/home/jjf/.cargo/registry/src/github.com-1ecc6299db9ec823/http-0.2.3");
-        m.insert("flate2", "/home/jjf/.cargo/registry/src/github.com-1ecc6299db9ec823/flate2-1.0.19");
-        m.insert("smoltcp", "/home/jjf/smoltcp");
-        m.insert("proc-macro2", "/home/jjf/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.24");
-        m.insert("time", "/home/jjf/.cargo/registry/src/github.com-1ecc6299db9ec823/time-0.2.24");
+        let src_directory = USER_HOME.to_string() + ".cargo/registry/src/" + USTC_MIRROR_DIR;
+        m.insert("url", src_directory.clone() + "url-2.2.0");
+        m.insert("regex-syntax", src_directory.clone() + "regex-syntax-0.6.22");
+        m.insert("semver-parser", src_directory.clone() + "semver-parser-0.10.2");
+        m.insert("bat", "/home/jjf/bat".to_string());
+        m.insert("xi-core-lib", "/home/jjf/xi-editor/rust".to_string());
+        m.insert("clap", src_directory.clone() + "clap-2.33.3");
+        m.insert("regex", src_directory.clone() + "regex-1.4.3");
+        m.insert("serde_json", src_directory.clone() + "serde_json-1.0.61");
+        m.insert("tui", "/home/jjf/tui-rs".to_string());
+        m.insert("semver", src_directory.clone() + "semver-0.11.0");
+        m.insert("http", src_directory.clone() + "http-0.2.3");
+        m.insert("flate2", src_directory.clone() + "flate2-1.0.19");
+        m.insert("smoltcp", "/home/jjf/smoltcp".to_string());
+        m.insert("proc-macro2", src_directory.clone() + "proc-macro2-1.0.24");
+        m.insert("time", src_directory.clone() + "time-0.2.24");
 
         //fudge_like
-        m.insert("fudge_like_url", "/home/jjf/Fudge-Like-Targets/url/fudge_like_url");
-        m.insert("fudge_like_regex", "/home/jjf/Fudge-Like-Targets/regex/fudge_like_regex");
-        m.insert("fudge_like_time", "/home/jjf/Fudge-Like-Targets/time/fudge_like_time");
+        m.insert("fudge_like_url", "/home/jjf/Fudge-Like-Targets/url/fudge_like_url".to_string());
+        m.insert("fudge_like_regex", "/home/jjf/Fudge-Like-Targets/regex/fudge_like_regex".to_string());
+        m.insert("fudge_like_time", "/home/jjf/Fudge-Like-Targets/time/fudge_like_time".to_string());
 
         //fudge
-        m.insert("fudge_url", "/home/jjf/Fudge-Like-Targets/url/fudge_url");
-        m.insert("fudge_regex", "/home/jjf/Fudge-Like-Targets/regex/fudge_regex");
-        m.insert("fudge_time", "/home/jjf/Fudge-Like-Targets/time/fudge_time");
+        m.insert("fudge_url", "/home/jjf/Fudge-Like-Targets/url/fudge_url".to_string());
+        m.insert("fudge_regex", "/home/jjf/Fudge-Like-Targets/regex/fudge_regex".to_string());
+        m.insert("fudge_time", "/home/jjf/Fudge-Like-Targets/time/fudge_time".to_string());
         m
     };
 }
