@@ -68,7 +68,7 @@ lazy_static! {
         m.insert("serde_json", src_directory.clone() + "serde_json-1.0.61");
         m.insert("tui", "/home/jjf/tui-rs".to_string());
         m.insert("semver", src_directory.clone() + "semver-0.11.0");
-        m.insert("http", src_directory.clone() + "http-0.2.3");
+        m.insert("http", src_directory.clone() + "http-0.2.6");
         m.insert("flate2", src_directory.clone() + "flate2-1.0.19");
         m.insert("smoltcp", "/home/jjf/smoltcp".to_string());
         m.insert("proc-macro2", src_directory.clone() + "proc-macro2-1.0.24");
@@ -132,7 +132,7 @@ lazy_static! {
         m.insert("serde_json", "\"= 1.0.61\"");
         m.insert("tui", "\"*\"");
         m.insert("semver", "\"= 0.11.0\"");
-        m.insert("http", "\"= 0.2.3\"");
+        m.insert("http", "\"= 0.2.6\"");
         m.insert("flate2", "\"= 1.0.19\"");
         m.insert("smoltcp", "\"*\"");
         m.insert("proc-macro2", "\"= 1.0.24\"");
@@ -191,7 +191,7 @@ static AFL_OUTPUT_DIR: &'static str = "out";
 static CARGO_TOML: &'static str = "Cargo.toml";
 static BUILD_SCRIPT: &'static str = "build";
 // static AFL_DEPENDENCY: &'static str = "afl = {path=\"/home/jjf/afl.rs\"}";
-static AFL_DEPENDENCY: &'static str = "afl = \"*\"";
+static AFL_DEPENDENCY: &'static str = "afl = \"=0.11.1\"";
 static TMIN_OUTPUT_DIR: &'static str = "tmin_output";
 static CMIN_OUTPUT_DIR: &'static str = "cmin_output";
 static STATISTIC_OUTPUT_FILE: &'static str = "statistics";
