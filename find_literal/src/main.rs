@@ -161,11 +161,14 @@ pub fn read_literals(user_options: &UserOptions) -> Vec<String>{
     let mut float_literals = HashMap::new();
     let mut string_literals = HashMap::new();
     let mut char_literals = HashMap::new();
-    //slice字面量是否需要？
-    //let mut slice_literals = Vec::new();
 
     for file in &all_rs_files {
         read_file(file, &mut integer_literals, &mut float_literals, &mut string_literals, &mut char_literals);
+    }
+
+    // 防止没有找到任何字面量
+    if integer_literals.len() == 0 {
+        integer_literals.insert("42".to_string(), 1);
     }
 
     let initial_inputs = generate_afl_initial_input(user_options, &integer_literals, &float_literals, &string_literals, &char_literals);

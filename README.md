@@ -5,7 +5,7 @@ These are two scripts for fuzzing Rust libraries to cooperate with our [fuzz tar
 We have tried to mention some possible problems that may appear during fuzzing process in this documentation. But we may also miss some conditions. You can submit an issue if you are faced with any problem when fuzzing a Rust library.
 
 ## Note:  
-afl.rs has released a new version to depend on an AFL++ latest version. We have checked our scripts still can work now(2022-1-5).
+afl.rs has released a new version to depend on an AFL++ latest version. We have checked that the newest afl.rs that our scripts can work with is 0.11.1(2022-4-10).
 ## Before using the scripts  
 
 Before using these scripts, you need to make sure you have correctly install [afl.rs](https://github.com/rust-fuzz/afl.rs) and [afl.rs](https://github.com/rust-fuzz/afl.rs) can run properly. You can follow the instructions on [rust-fuzz-book](https://rust-fuzz.github.io/book/afl.html).
