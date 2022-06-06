@@ -1,16 +1,16 @@
 use std::env;
-extern crate regex;
 extern crate rand;
+extern crate regex;
+use rand::distributions::weighted::alias_method::WeightedIndex;
+use rand::prelude::*;
 use regex::Regex;
-use std::path::PathBuf;
-use std::process;
+use std::collections::{BinaryHeap, HashMap};
 use std::fs;
 use std::io::{self, Write};
-use std::collections::{HashMap, BinaryHeap};
-use rand::prelude::*;
-use rand::distributions::weighted::alias_method::WeightedIndex;
+use std::path::{PathBuf, Path};
+use std::process;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct UserOptions {
     output_option: Option<PathBuf>,
     input_option: Option<PathBuf>,
@@ -19,23 +19,14 @@ pub struct UserOptions {
 }
 
 impl UserOptions {
-    pub fn new() -> Self {
-        UserOptions {
-            output_option: None,
-            input_option: None,
-            suggest_length: None,
-            afl_initail_number: None,
-        }
-    }
-
-    pub fn new_from_cli(args: &Vec<String>) -> Self {
-        let mut user_options = UserOptions::new();
+    pub fn new_from_cli(args: &[String]) -> Self {
+        let mut user_options = UserOptions::default();
         user_options.extract_options(args);
         user_options.set_default_option();
         user_options
     }
 
-    pub fn extract_options(&mut self, args: &Vec<String>){
+    pub fn extract_options(&mut self, args: &[String]) {
         let output_option = Regex::new("(-o|--output)").unwrap();
         let input_option = Regex::new("(-i|--input)").unwrap();
         let length_option = Regex::new("(-l|--length)").unwrap();
@@ -47,10 +38,10 @@ impl UserOptions {
             //extract output option
             if output_option.is_match(s.as_str()) {
                 if let Some(output_dir) = args_iter.next() {
-                    let pathbuf = PathBuf::from(output_dir);  
-                    self.output_option = Some(pathbuf); 
+                    let pathbuf = PathBuf::from(output_dir);
+                    self.output_option = Some(pathbuf);
                     continue;
-                }else {
+                } else {
                     println!("Invalid options. Expect output directory after -o/--output");
                     process::exit(-1);
                 }
@@ -61,7 +52,7 @@ impl UserOptions {
                     let pathbuf = PathBuf::from(input_file);
                     self.input_option = Some(pathbuf);
                     continue;
-                }else {
+                } else {
                     println!("Invalid options. Expect input directory after -i/--input");
                     process::exit(-2);
                 }
@@ -76,7 +67,7 @@ impl UserOptions {
                     let length = length.unwrap();
                     self.suggest_length = Some(length);
                     continue;
-                }else {
+                } else {
                     println!("Invalid options. Expect number after -l/--length");
                     process::exit(-3);
                 }
@@ -97,11 +88,11 @@ impl UserOptions {
                 }
             }
             if helper_option.is_match(s.as_str()) {
-                if let Some(_) = args_iter.next() {
+                if args_iter.next().is_some() {
                     println!("Invalid options.\n");
                     println!("{}", help_message());
                     process::exit(-12);
-                }else {
+                } else {
                     println!("{}", help_message());
                     process::exit(0);
                 }
@@ -126,7 +117,7 @@ impl UserOptions {
 }
 
 pub fn help_message() -> &'static str {
-"find_literal 0.1.0
+    "find_literal 0.1.0
 
 USAGE: 
     find_literal (-i input_dir) (-o output_dir) (-l length) (-n number)
@@ -140,7 +131,7 @@ FLAGS:
 "
 }
 
-pub fn read_literals(user_options: &UserOptions) -> Vec<String>{
+pub fn read_literals(user_options: &UserOptions) -> Vec<String> {
     let input_filename = user_options.input_option.as_ref().unwrap();
 
     let mut all_rs_files = Vec::new();
@@ -149,10 +140,8 @@ pub fn read_literals(user_options: &UserOptions) -> Vec<String>{
         walk_dir_recursive(input_filename, &mut all_rs_files);
     }
 
-    if input_filename.is_file() {
-        if is_rs_src_file(input_filename) {
-            all_rs_files.push(input_filename.clone());
-        }
+    if input_filename.is_file() && is_rs_src_file(input_filename) {
+        all_rs_files.push(input_filename.clone());
     }
     all_rs_files.sort();
     println!("all_rs_files = {:?}", all_rs_files);
@@ -163,27 +152,38 @@ pub fn read_literals(user_options: &UserOptions) -> Vec<String>{
     let mut char_literals = HashMap::new();
 
     for file in &all_rs_files {
-        read_file(file, &mut integer_literals, &mut float_literals, &mut string_literals, &mut char_literals);
+        read_file(
+            file,
+            &mut integer_literals,
+            &mut float_literals,
+            &mut string_literals,
+            &mut char_literals,
+        );
     }
 
     // 防止没有找到任何字面量
-    if integer_literals.len() == 0 {
+    if integer_literals.is_empty() {
         integer_literals.insert("42".to_string(), 1);
     }
 
-    let initial_inputs = generate_afl_initial_input(user_options, &integer_literals, &float_literals, &string_literals, &char_literals);
-    //println!("{:?}", initial_inputs);
-    initial_inputs
+    generate_afl_initial_input(
+        user_options,
+        &integer_literals,
+        &float_literals,
+        &string_literals,
+        &char_literals,
+    )
 }
 
-pub fn walk_dir_recursive(path: &PathBuf, all_files: &mut Vec<PathBuf>) {
+pub fn walk_dir_recursive(path: &Path, all_files: &mut Vec<PathBuf>) {
     let dir_entry = fs::read_dir(path).unwrap();
-    let dir_entries = dir_entry.map(|res| res.map(|e| e.path())).collect::<Result<Vec<_>, io::Error>>().unwrap();
+    let dir_entries = dir_entry
+        .map(|res| res.map(|e| e.path()))
+        .collect::<Result<Vec<_>, io::Error>>()
+        .unwrap();
     for dir_path in &dir_entries {
-        if dir_path.is_file() {
-            if is_rs_src_file(dir_path) {
-                all_files.push(dir_path.clone());
-            }
+        if dir_path.is_file() && is_rs_src_file(dir_path){
+            all_files.push(dir_path.clone());
         }
         if dir_path.is_dir() {
             walk_dir_recursive(dir_path, all_files);
@@ -191,25 +191,26 @@ pub fn walk_dir_recursive(path: &PathBuf, all_files: &mut Vec<PathBuf>) {
     }
 }
 
-pub fn is_rs_src_file(path: &PathBuf) -> bool {
+pub fn is_rs_src_file(path: &Path) -> bool {
     let rs_src_file = Regex::new("\\.rs$").unwrap();
     let filename = path.to_str().unwrap();
-    if rs_src_file.find(filename).is_some() {
-        true
-    }else {
-        false
-    }
+    rs_src_file.find(filename).is_some()
 }
 
-pub fn read_file(path: &PathBuf, integer_literals: &mut HashMap<String, usize>, float_literals: &mut HashMap<String,usize>,
-    string_literals: &mut HashMap<String, usize>, char_literals: &mut HashMap<String,usize>) {
+pub fn read_file(
+    path: &Path,
+    integer_literals: &mut HashMap<String, usize>,
+    float_literals: &mut HashMap<String, usize>,
+    string_literals: &mut HashMap<String, usize>,
+    char_literals: &mut HashMap<String, usize>,
+) {
     //println!("filename = {:?}", path.as_os_str());
     let rs_file = fs::read_to_string(path);
     if rs_file.is_err() {
         return;
     }
     let rs_file = rs_file.unwrap();
-    let rs_file_lines = rs_file.split("\n");
+    let rs_file_lines = rs_file.split('\n');
     let integer_regex = Regex::new("(\\+|-)?(\\d)+(e(\\+|-)?(\\d)+)?").unwrap();
     let float_regex = Regex::new("(\\+|-)?(\\d)+\\.((\\+|-)?(\\d)+(e(\\+|-)?(\\d)+)?)?").unwrap();
     let string_regex = Regex::new("\"(^\"|\\s|\\S)*\"").unwrap();
@@ -227,15 +228,18 @@ pub fn read_file(path: &PathBuf, integer_literals: &mut HashMap<String, usize>, 
         }
         let string_matches = string_regex.find_iter(line);
         for string_match in string_matches {
-            let string_literal= string_match.as_str().to_string().replace("\"", "");
-            if string_literal.contains("{}") || string_literal.contains("{:?}") || string_literal.contains("{:#?}}") {
+            let string_literal = string_match.as_str().to_string().replace('\"', "");
+            if string_literal.contains("{}")
+                || string_literal.contains("{:?}")
+                || string_literal.contains("{:#?}}")
+            {
                 continue;
             }
             add_to_hashmap(string_literal, string_literals)
         }
         let char_matches = char_regex.find_iter(line);
         for char_match in char_matches {
-            let char_literal = char_match.as_str().to_string().replace("\'", "");
+            let char_literal = char_match.as_str().to_string().replace('\'', "");
             add_to_hashmap(char_literal, char_literals);
         }
     }
@@ -244,7 +248,7 @@ pub fn read_file(path: &PathBuf, integer_literals: &mut HashMap<String, usize>, 
 pub fn add_to_hashmap(key: String, map: &mut HashMap<String, usize>) {
     let count = if map.contains_key(&key) {
         map.get(&key).unwrap() + 1
-    }else {
+    } else {
         1
     };
     map.insert(key, count);
@@ -256,9 +260,13 @@ struct LiteralCount {
     literal: String,
 }
 
-pub fn generate_afl_initial_input(user_options: &UserOptions,integer_literals: &HashMap<String, usize>, float_literals: &HashMap<String,usize>,
-        string_literals: &HashMap<String, usize>, char_literals: &HashMap<String,usize>) -> Vec<String> {
-
+pub fn generate_afl_initial_input(
+    user_options: &UserOptions,
+    integer_literals: &HashMap<String, usize>,
+    float_literals: &HashMap<String, usize>,
+    string_literals: &HashMap<String, usize>,
+    char_literals: &HashMap<String, usize>,
+) -> Vec<String> {
     let mut literal_counts = BinaryHeap::new();
 
     add_literal_counts(&mut literal_counts, integer_literals);
@@ -266,33 +274,38 @@ pub fn generate_afl_initial_input(user_options: &UserOptions,integer_literals: &
     add_literal_counts(&mut literal_counts, string_literals);
     add_literal_counts(&mut literal_counts, char_literals);
 
-    let literal_vec = literal_counts.iter()
+    let literal_vec = literal_counts
+        .iter()
         .map(|literal_count| literal_count.literal.clone())
         .collect::<Vec<String>>();
-    let literal_weights = literal_counts.iter()
+    let literal_weights = literal_counts
+        .iter()
         .map(|literal_count| literal_count.count)
         .collect::<Vec<usize>>();
     let dist = WeightedIndex::new(literal_weights).unwrap();
-    
+
     let number = user_options.afl_initail_number.unwrap();
-    let length  = user_options.suggest_length;
+    let length = user_options.suggest_length;
     let literal_number = literal_vec.len();
-    
+
     let mut res = Vec::new();
     if literal_number == 0 {
-        println!("no literal has been found in input directory{:?}.", user_options.input_option.as_ref().unwrap());
+        println!(
+            "no literal has been found in input directory{:?}.",
+            user_options.input_option.as_ref().unwrap()
+        );
         process::exit(-6);
     }
     let mut rng = thread_rng();
 
-    let length_weight:Vec<usize> = vec![4,2,1,1];
+    let length_weight: Vec<usize> = vec![4, 2, 1, 1];
     let length_dist = WeightedIndex::new(length_weight).unwrap();
     for _ in 0..number {
         let mut one_string = String::new();
-        let pick_number = if length.is_none() {
+        let pick_number = if let Some(length) = length {
+            length
+        } else {
             length_dist.sample(&mut rng) + 1
-        }else {
-            length.unwrap()
         };
 
         for _ in 0..pick_number {
@@ -304,11 +317,14 @@ pub fn generate_afl_initial_input(user_options: &UserOptions,integer_literals: &
     res
 }
 
-fn add_literal_counts(literal_counts: &mut BinaryHeap<LiteralCount>, literals: &HashMap<String, usize>) {
+fn add_literal_counts(
+    literal_counts: &mut BinaryHeap<LiteralCount>,
+    literals: &HashMap<String, usize>,
+) {
     for (literal, count) in literals {
         let literal_count = LiteralCount {
-            count: count.clone(),
-            literal: literal.clone(),
+            count: *count,
+            literal: literal.to_owned(),
         };
         literal_counts.push(literal_count);
     }
@@ -322,40 +338,46 @@ pub fn write_to_file(user_options: &UserOptions, initial_inputs: Vec<String>) {
     }
     let output_dir = &output_option.clone().join("afl_init");
     if output_dir.is_dir() {
-        fs::remove_dir_all(output_dir).unwrap_or_else(
-            |_| {println!("Unable to delete output directory."); process::exit(-8)}
-        );
+        fs::remove_dir_all(output_dir).unwrap_or_else(|_| {
+            println!("Unable to delete output directory.");
+            process::exit(-8)
+        });
     }
     if output_dir.is_file() {
-        fs::remove_file(output_dir).unwrap_or_else(
-            |_| {println!("Unable to delete output file."); process::exit(-9);}
-        )
+        fs::remove_file(output_dir).unwrap_or_else(|_| {
+            println!("Unable to delete output file.");
+            process::exit(-9);
+        })
     }
-    fs::create_dir_all(output_dir).unwrap_or_else(
-        |_| {println!("Unable to create output directory {:?}.", output_dir); process::exit(-10);}
-    );
+    fs::create_dir_all(output_dir).unwrap_or_else(|_| {
+        println!("Unable to create output directory {:?}.", output_dir);
+        process::exit(-10);
+    });
 
     let initial_inputs_num = initial_inputs.len();
-    for i in 0..initial_inputs_num {
+    for (i, write_content) in initial_inputs.iter().enumerate().take(initial_inputs_num) {
         let filename = format!("afl_input{}", i);
         let output_file = &output_dir.clone().join(filename);
-        let mut output_file = fs::File::create(output_file).unwrap_or_else(
-            |_| {println!("Unable to create output file {:?}", output_file); process::exit(-11);}
-        );
-        let write_content = &initial_inputs[i];
-        output_file.write_all(write_content.as_bytes()).unwrap_or_else(
-            |_| {println!("write file {:?} failed.", output_file); process::exit(-12);}
-        );
+        let mut output_file = fs::File::create(output_file).unwrap_or_else(|_| {
+            println!("Unable to create output file {:?}", output_file);
+            process::exit(-11);
+        });
+        output_file
+            .write_all(write_content.as_bytes())
+            .unwrap_or_else(|_| {
+                println!("write file {:?} failed.", output_file);
+                process::exit(-12);
+            });
     }
 
     println!("output_dir = {:?}", output_dir);
 }
 
 fn main() {
-    let args:Vec<String> = env::args().collect();
+    let args: Vec<String> = env::args().collect();
     let user_options = UserOptions::new_from_cli(&args);
     //println!("{:?}",user_options);
 
-    let initial_inputs= read_literals(&user_options);
+    let initial_inputs = read_literals(&user_options);
     write_to_file(&user_options, initial_inputs);
 }
