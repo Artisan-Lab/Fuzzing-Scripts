@@ -1,4 +1,6 @@
 #[macro_use]
+extern crate log;
+#[macro_use]
 extern crate lazy_static;
 extern crate config;
 extern crate regex;
@@ -8,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 use std::process::{exit, Command, Output, Stdio};
 use std::str;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -287,7 +289,7 @@ impl UserOptions {
                         continue;
                     }
                 }
-                println!("Invalid -f/find_literal flag.");
+                error!("Invalid -f/find_literal flag.");
                 exit(-1);
             }
             if check_option.is_match(s.as_str()) {
@@ -342,15 +344,15 @@ impl UserOptions {
                 self.init_afl_input = true;
                 continue;
             }
-            if self.crate_name.is_none() && CRATES.contains(s.as_str()){
+            if self.crate_name.is_none() && CRATES.contains(s.as_str()) {
                 self.crate_name = Some(s.clone());
                 continue;
             }
-            println!("Invalid Options.");
+            error!("Invalid Options.");
             exit(-1);
         }
         if self.crate_name.is_none() {
-            println!("No valid crate is provided.");
+            error!("No valid crate is provided.");
             exit(-1);
         }
     }
@@ -391,32 +393,33 @@ FLAGS:
 fn do_work(user_options: &UserOptions) {
     let crate_name = user_options.crate_name.as_ref().unwrap();
     if user_options.check {
+        info!("check {} success.", crate_name);
         check_pre_condition(crate_name);
-        println!("check success.");
         exit(0);
     }
     if user_options.find_literal.is_some() {
+        info!("find literal for {}.", crate_name);
         do_find_literal(crate_name, user_options.find_literal.unwrap().to_string());
-        println!("find literal");
         exit(0);
     }
     if user_options.prepare {
+        info!("prepare test files for {}.", crate_name);
         prepare_test_files(crate_name);
-        println!("prepare test files");
         exit(0);
     }
     if user_options.clean {
+        info!("clean {}.", crate_name);
         clean(crate_name);
-        println!("clean");
         exit(0);
     }
     if user_options.crash {
-        println!("find crashes");
+        info!("find crash files for {}.", crate_name);
         print_crashes(crate_name);
         exit(0);
     }
 
     if user_options.build {
+        info!("build {}.", crate_name);
         let tests = check_pre_condition(crate_name);
         init_test_dir(crate_name, &tests);
         build_afl_tests(crate_name);
@@ -425,33 +428,39 @@ fn do_work(user_options: &UserOptions) {
         exit(0);
     }
     if user_options.fuzz {
+        info!("fuzz {}.", crate_name);
         let tests = check_pre_condition(crate_name);
         check_build(crate_name, &tests);
         fuzz_it(crate_name, &tests);
         exit(0);
     }
     if user_options.tmin {
+        info!("run afl-tmin for {}.", crate_name);
         tmin(crate_name);
         exit(0);
     }
     if user_options.cmin {
+        info!("run afl-cmin for {}", crate_name);
         cmin(crate_name);
         exit(0);
     }
     if user_options.replay {
+        info!("replay crash files for {}.", crate_name);
         replay_crashes(crate_name);
         exit(0);
     }
     if user_options.statistic {
+        info!("statistics for {}.", crate_name);
         output_statistics(crate_name);
         exit(0);
     }
     if user_options.showmap {
+        info!("run afl-showmap for {}.", crate_name);
         showmap(crate_name);
         exit(0);
     }
     if user_options.init_afl_input {
-        println!("init afl input for each target");
+        info!("init afl input for {}.", crate_name);
         let tests = check_pre_condition(crate_name);
         check_build(crate_name, &tests);
         init_afl_input(crate_name);
@@ -486,14 +495,13 @@ fn do_find_literal(crate_name: &str, input_number: String) {
         "-n",
         input_number.as_str(),
     ];
-    let output = Command::new("find_literal")
+    Command::new("find_literal")
         .args(args)
         .output()
         .unwrap_or_else(|_| {
-            println!("find_literal encounter problems.");
+            error!("find_literal encounter problems.");
             exit(-1);
         });
-    print_output(output);
 }
 
 fn prepare_test_files(crate_name: &str) {
@@ -513,7 +521,6 @@ fn prepare_test_files(crate_name: &str) {
         .output()
         .unwrap();
     let stderr = str::from_utf8(output.stderr.as_slice()).unwrap();
-    //println!("stderr = {}", stderr);
     let stderr_lines: Vec<&str> = stderr.split('\n').collect();
     let stderr_lines_number = stderr_lines.len();
     if stderr_lines_number < 3 {
@@ -564,16 +571,14 @@ pub fn check_pre_condition(crate_name: &str) -> Vec<String> {
 
     let mut test_filenames = Vec::new();
     check_rs_file(&test_file_entries, &mut test_filenames);
-    //println!("{:?}",test_filenames);
 
     let mut replay_filenames = Vec::new();
     check_rs_file(&replay_file_entries, &mut replay_filenames);
-    //println!("{:?}", replay_filenames);
 
     for test_file in &test_filenames {
         let replay_file = test_file.clone().replace("test", "replay");
         if !replay_filenames.contains(&replay_file) {
-            println!("Not exist replay file for test file {}", test_file);
+            error!("replay file dost not exist for test file {}.", test_file);
             exit(-1);
         }
     }
@@ -583,15 +588,15 @@ pub fn check_pre_condition(crate_name: &str) -> Vec<String> {
 fn check_static() {
     for crate_name in CRATES.iter() {
         if !CRATE_SRC_DIR.contains_key(crate_name) {
-            println!("{} not set src dir.", crate_name);
+            error!("{} not set src dir.", crate_name);
             exit(-1);
         }
         if !CRATE_TEST_DIR.contains_key(crate_name) {
-            println!("{} not set test dir.", crate_name);
+            error!("{} not set test dir.", crate_name);
             exit(-1);
         }
         if !CRATE_VERSION.contains_key(crate_name) {
-            println!("{} not set version", crate_name);
+            error!("{} not set version", crate_name);
             exit(-1);
         }
     }
@@ -599,7 +604,6 @@ fn check_static() {
 
 fn check_maybe_empty_directory(dir: &Path) -> Vec<PathBuf> {
     if !dir.is_dir() {
-        //println!("File directory {:?} not exists.", dir);
         return Vec::new();
     }
     let file_entry = fs::read_dir(dir).unwrap();
@@ -612,7 +616,7 @@ fn check_maybe_empty_directory(dir: &Path) -> Vec<PathBuf> {
 fn check_no_empty_directory(dir: &Path) -> Vec<PathBuf> {
     let file_entries = check_maybe_empty_directory(dir);
     if file_entries.is_empty() {
-        println!("No file in {:?}.", dir);
+        error!("No file in {:?}.", dir);
         exit(-1);
     }
     file_entries
@@ -625,7 +629,7 @@ fn check_rs_file(file_entries: &[PathBuf], filenames: &mut Vec<String>) {
         if regex.is_match(last_file) && pathbuf.is_file() {
             filenames.push(last_file.to_string().replace(".rs", ""));
         } else {
-            println!("Invalid file {} was found.", last_file);
+            error!("Invalid file {} was found.", last_file);
             exit(-1);
         }
     }
@@ -647,13 +651,13 @@ fn clean(crate_name: &str) {
         if !except_files.contains(&last_file_name(file_entry)) {
             if file_entry.is_dir() {
                 fs::remove_dir_all(file_entry).unwrap_or_else(|_| {
-                    println!("Encounter error when removing {:?}.", file_entry);
+                    error!("Encounter error when removing {:?}.", file_entry);
                     exit(-1);
                 });
             }
             if file_entry.is_file() {
                 fs::remove_file(file_entry).unwrap_or_else(|_| {
-                    println!("Encounter error when removing {:?}.", file_entry);
+                    error!("Encounter error when removing {:?}.", file_entry);
                     exit(-1);
                 });
             }
@@ -667,21 +671,21 @@ fn init_test_dir(crate_name: &str, tests: &[String]) {
     //生成输出目录
     let output_dir = test_path.join(AFL_OUTPUT_DIR);
     fs::create_dir_all(&output_dir).unwrap_or_else(|_| {
-        println!("Encounter error when creating {:?}.", output_dir);
+        error!("Encounter error when creating {:?}.", output_dir);
         exit(-1);
     });
 
     //生成cargo.toml内容
     let cargo_toml_path = test_path.join(CARGO_TOML);
     let mut cargo_toml_file = fs::File::create(&cargo_toml_path).unwrap_or_else(|_| {
-        println!("Encounter error when creating {:?}.", cargo_toml_path);
+        error!("Encounter error when creating {:?}.", cargo_toml_path);
         exit(-1);
     });
     let cargo_content = cargo_workspace_file_content(tests);
     cargo_toml_file
         .write_all(cargo_content.as_bytes())
         .unwrap_or_else(|_| {
-            println!("write file {:?} failed.", cargo_toml_file);
+            error!("write file {:?} failed.", cargo_toml_file);
             exit(-1);
         });
 
@@ -711,20 +715,20 @@ fn init_test_dir(crate_name: &str, tests: &[String]) {
     //生成build script(貌似没必要)
     let build_script_path = test_path.join(BUILD_SCRIPT);
     let mut build_script_file = fs::File::create(&build_script_path).unwrap_or_else(|_| {
-        println!("Encounter error when creating {:?}.", build_script_path);
+        error!("Encounter error when creating {:?}.", build_script_path);
         exit(-1);
     });
     let build_script = build_script_content(&test_path);
     build_script_file
         .write_all(build_script.as_bytes())
         .unwrap_or_else(|_| {
-            println!("write file {:?} failed.", build_script_file);
+            error!("write file {:?} failed.", build_script_file);
             exit(-1);
         });
     Command::new("chmod")
         .arg("+x")
         .arg(build_script_path.as_os_str())
-        .output()
+        .status()
         .unwrap();
 
     //为每个test crate添加依赖
@@ -734,12 +738,12 @@ fn init_test_dir(crate_name: &str, tests: &[String]) {
             .append(true)
             .open(&test_cargo_toml_path)
             .unwrap_or_else(|_| {
-                println!("can't open file {:?}.", test_cargo_toml_path);
+                error!("can't open file {:?}.", test_cargo_toml_path);
                 exit(-1);
             });
         file.write_all(AFL_DEPENDENCY.as_bytes())
             .unwrap_or_else(|_| {
-                println!("write file {:?} failed.", test_cargo_toml_path);
+                error!("write file {:?} failed.", test_cargo_toml_path);
                 exit(-1);
             });
         file.write_all("\n".as_bytes()).unwrap();
@@ -752,7 +756,7 @@ fn init_test_dir(crate_name: &str, tests: &[String]) {
         let crate_dependency = format!("{} = {}\n", crate_name, version);
         file.write_all(crate_dependency.as_bytes())
             .unwrap_or_else(|_| {
-                println!("write file {:?} failed.", test_cargo_toml_path);
+                error!("write file {:?} failed.", test_cargo_toml_path);
                 exit(-1);
             });
     }
@@ -764,7 +768,7 @@ fn init_test_dir(crate_name: &str, tests: &[String]) {
             .append(true)
             .open(&replay_cargo_toml_path)
             .unwrap_or_else(|_| {
-                println!("can't open file {:?}.", replay_cargo_toml_path);
+                error!("can't open file {:?}.", replay_cargo_toml_path);
                 exit(-1);
             });
         let version = if CRATE_PATCH_PATH.contains_key(crate_name) {
@@ -775,7 +779,7 @@ fn init_test_dir(crate_name: &str, tests: &[String]) {
         let crate_dependency = format!("{} = {}\n", crate_name, version);
         file.write_all(crate_dependency.as_bytes())
             .unwrap_or_else(|_| {
-                println!("write file {:?} failed.", replay_cargo_toml_path);
+                error!("write file {:?} failed.", replay_cargo_toml_path);
                 exit(-1);
             });
     }
@@ -851,24 +855,23 @@ fn check_build(crate_name: &str, tests: &[String]) {
         let build_afl_file_path = target_path.join(test);
         if !build_afl_file_path.is_file() {
             flag = false;
-            println!("{} build failed.", test);
+            error!("{} build failed.", test);
         }
         let replay = test.clone().replace("test", "replay");
         let build_replay_file_path = target_path.join(&replay);
         if !build_replay_file_path.is_file() {
             flag = false;
-            println!("{} build failed", replay);
+            error!("{} build failed", replay);
         }
     }
     if flag {
-        println!("check build success");
+        info!("check build success");
     } else {
         exit(-1);
     }
 }
 
 fn fuzz_it(crate_name: &str, tests: &[String]) {
-    println!("start fuzz:");
     let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
     let test_path = PathBuf::from(test_dir);
     let target_path = test_path.join("target").join(EDITION);
@@ -893,14 +896,11 @@ fn fuzz_it(crate_name: &str, tests: &[String]) {
         let afl_input_path = PathBuf::from(&test_path)
             .join(AFL_INPUT_DIR)
             .join(afl_dir_name);
-        //println!("fuzz {:?}", afl_target_path);
-        //let args = vec!["afl", "fuzz", "-i", AFL_INPUT_DIR, "-o", afl_output_dir.to_str().unwrap(), afl_target_path.to_str().unwrap()];
-        //let child = Command::new("cargo").args(args).current_dir(test_path_copy.as_os_str()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap();
         let exit_time_file_path = exit_time_path.join(test);
 
         let val_copy = val.clone();
         let handle = thread::spawn(move || {
-            println!("fuzz {:?}", afl_target_path);
+            info!("fuzz {:?}", afl_target_path);
             let start = Instant::now();
             let args = vec![
                 "afl",
@@ -911,7 +911,6 @@ fn fuzz_it(crate_name: &str, tests: &[String]) {
                 afl_output_dir.to_str().unwrap(),
                 afl_target_path.to_str().unwrap(),
             ];
-            // println!("{:?}", args);
             let exit_status = Command::new("cargo")
                 .args(&args)
                 .current_dir(test_path_copy.as_os_str())
@@ -920,13 +919,9 @@ fn fuzz_it(crate_name: &str, tests: &[String]) {
                 .stdout(Stdio::null())
                 .status()
                 .unwrap();
-            let command_string = format!("cargo {}", args.join(" "));
-            println!("{}", command_string);
-            println!("{:?} {:?}", afl_target_path, exit_status);
+            info!("{:?} {:?}", afl_target_path, exit_status);
             let cost_time = start.elapsed().as_secs();
 
-            //计算退出的数量
-            //let val = val.clone();
             val_copy.fetch_add(1, Ordering::SeqCst);
 
             if exit_time_file_path.is_file() {
@@ -936,17 +931,17 @@ fn fuzz_it(crate_name: &str, tests: &[String]) {
                 fs::remove_dir_all(&exit_time_file_path).unwrap();
             }
             if exit_status.success() {
-                println!("{:?} succeed.", afl_target_path);
+                info!("{:?} succeed.", afl_target_path);
                 let mut exit_time_file = fs::File::create(&exit_time_file_path).unwrap();
                 let content = format!("{}", cost_time);
                 exit_time_file
                     .write_all(content.as_bytes())
                     .unwrap_or_else(|_| {
-                        println!("write file {:?} failed.", exit_time_file_path);
+                        error!("write file {:?} failed.", exit_time_file_path);
                         exit(-1);
                     });
             } else {
-                println!("{:?} fails.", afl_target_path)
+                error!("{:?} fails.", afl_target_path)
             }
         });
 
@@ -966,17 +961,17 @@ fn fuzz_it(crate_name: &str, tests: &[String]) {
     statisticfile
         .write_all(title.as_bytes())
         .unwrap_or_else(|_| {
-            println!("write file {:?} failed.", statistic_file_path);
+            error!("write file {:?} failed.", statistic_file_path);
             exit(-1);
         });
 
     loop {
         thread::sleep(Duration::from_secs(60));
         minute_count += 1;
-        println!("fuzz has run {} minutes.", minute_count);
+        info!("fuzz has run {} minutes.", minute_count);
         output_statistics_to_files(crate_name, minute_count);
         let exit_threads_number = val.as_ref().load(Ordering::SeqCst);
-        println!(
+        info!(
             "{} threads has exited, there's still {} threads running",
             exit_threads_number,
             tests.len() - exit_threads_number
@@ -986,7 +981,7 @@ fn fuzz_it(crate_name: &str, tests: &[String]) {
         }
     }
 
-    println!(
+    info!(
         "Fuzzing totally runs {} minutes. All fuzzing thread finished",
         minute_count
     );
@@ -1005,7 +1000,6 @@ fn find_crash(crate_name: &str) -> Vec<PathBuf> {
     let mut all_crash_files = Vec::new();
     for test_output_path in &test_output_paths {
         let crash_output_path = test_output_path.clone().join(CRASH_DIR);
-        //println!("crash_output_path{:?}", crash_output_path);
         let crash_files = check_maybe_empty_directory(&crash_output_path);
         for crash_file in crash_files {
             let filename = crash_file.to_str().unwrap();
@@ -1020,14 +1014,14 @@ fn find_crash(crate_name: &str) -> Vec<PathBuf> {
 fn print_crashes(crate_name: &str) {
     let all_crash_files = find_crash(crate_name);
     if all_crash_files.is_empty() {
-        println!("Find no crash files");
+        error!("Find no crash files");
         exit(-1);
     } else {
         for crash in &all_crash_files {
-            println!("crash path: {:?}", crash);
+            debug!("crash path: {:?}", crash);
         }
     }
-    println!("total crashes: {}", all_crash_files.len());
+    debug!("total crashes: {}", all_crash_files.len());
 }
 
 fn ensure_empty_dir(dir: &Path) {
@@ -1055,19 +1049,19 @@ fn tmin(crate_name: &str) {
     let tmin_output_path = test_path.join(TMIN_OUTPUT_DIR);
     ensure_empty_dir(&tmin_output_path);
     if all_crash_files.is_empty() {
-        println!("No crash files.");
+        warn!("No crash files.");
         exit(-1);
     }
-    println!("total crashes = {}", all_crash_files.len());
+    debug!("total crashes = {}", all_crash_files.len());
 
     let mut crash_counts = HashMap::new();
     for crash in &all_crash_files {
         let crash_file_name = crash.to_str().unwrap();
-        println!("crash_file_name = {}", crash_file_name);
+        debug!("crash_file_name = {}", crash_file_name);
         let file_name_split: Vec<&str> = crash_file_name.split('/').collect();
         let file_name_split_len = file_name_split.len();
         if file_name_split_len < 4 {
-            println!("Invalid crash file name");
+            error!("Invalid crash file name");
             exit(-1);
         }
         let test_crate_name = file_name_split[file_name_split_len - 4];
@@ -1099,13 +1093,11 @@ fn tmin(crate_name: &str) {
             tmin_output_filename,
             target_file_name,
         ];
-        //println!("{:?}", args);
-        let _ = Command::new("cargo")
+        Command::new("cargo")
             .args(args)
             .stdout(Stdio::null())
-            .output()
+            .status()
             .unwrap();
-        //print_output(output);
     }
 }
 
@@ -1123,14 +1115,12 @@ fn cmin(crate_name: &str) {
                 let tmin_directory_name = tmin_directory.to_str().unwrap();
                 let tmin_directory_name_split: Vec<&str> = tmin_directory_name.split('/').collect();
                 let test_case_name = tmin_directory_name_split.last().unwrap();
-                //println!("{}", tmin_directory_name);
                 execute_cmin(
                     tmin_directory_name,
                     test_case_name,
                     &cmin_output_path,
                     &test_path,
                 )
-                //print_output(output);
             }
             return;
         }
@@ -1152,7 +1142,7 @@ fn cmin(crate_name: &str) {
     }
 
     if nonempty_crash_dir.is_empty() {
-        println!("no crash file found.");
+        warn!("no crash file found.");
         exit(-1);
     }
 
@@ -1160,12 +1150,11 @@ fn cmin(crate_name: &str) {
 
     for crash_dir in nonempty_crash_dir {
         let crash_dir_name = crash_dir.to_str().unwrap();
-        //println!("{}", crash_dir_name);
         clean_crash_dir(&crash_dir);
         let crash_dir_name_split: Vec<&str> = crash_dir_name.split('/').collect();
         let crash_dir_name_split_len = crash_dir_name_split.len();
         if crash_dir_name_split_len < 2 {
-            println!("Invalid crash dir name");
+            error!("Invalid crash dir name");
             exit(-1);
         }
         let test_case_name = crash_dir_name_split[crash_dir_name_split_len - 2];
@@ -1185,7 +1174,7 @@ fn execute_cmin(
     cmin_output_path: &Path,
     test_path: &Path,
 ) {
-    println!("{}", test_case_name);
+    debug!("{}", test_case_name);
     let test_cmin_output_path = cmin_output_path.to_path_buf().join(test_case_name);
     let cmin_output_pathname = test_cmin_output_path.to_str().unwrap();
 
@@ -1195,12 +1184,6 @@ fn execute_cmin(
         .join(EDITION)
         .join(test_case_name);
     let target_name = target_path.to_str().unwrap();
-
-    //println!("crash dir name = {}", crash_dir_name);
-    //println!("test case name = {}", test_case_name);
-    //println!("cmin output path = {:?}", cmin_output_pathname);
-    //println!("test path = {:?}", test_path);
-    //println!("target name = {:?}", target_name);
 
     //add -C option to only apply to crash inputs
     let args = vec![
@@ -1213,8 +1196,7 @@ fn execute_cmin(
         cmin_output_pathname,
         target_name,
     ];
-    let exit_status = Command::new("cargo").args(args).status().unwrap();
-    println!("{:?}", exit_status);
+    Command::new("cargo").args(args).status().unwrap();
 }
 
 //去掉crash dir中的无效文件，比如readme，防止cmin产生不必要的路径
@@ -1230,7 +1212,6 @@ fn clean_crash_dir(crash_dir: &Path) {
 
 //确认哪些才是真的crash，有些crash可能没法replay
 fn replay_crashes(crate_name: &str) {
-    println!("replay");
     let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
     let test_path = PathBuf::from(test_dir);
     let target_path = test_path.join("target").join(EDITION);
@@ -1261,7 +1242,7 @@ fn replay_crashes(crate_name: &str) {
                     command.push(' ');
                     command.push_str(crash_file_name);
                     print_output(output);
-                    println!("{}", command);
+                    info!("{}", command);
                     //print_output(output);
                 }
             }
@@ -1269,29 +1250,26 @@ fn replay_crashes(crate_name: &str) {
         }
     }
 
-    println!("No cmin output files. Use raw crash files");
+    warn!("No cmin output files. Use raw crash files");
     //首先尝试直接对原始的结果进行replay
     let crash_files = find_crash(crate_name);
     for crash_file in crash_files {
         let crash_file_name = crash_file.to_str().unwrap();
-        //println!("{}", crash_file_name);
         //找到replay_file
         let crash_file_name_split: Vec<&str> = crash_file_name.split('/').collect();
         let crash_file_name_split_len = crash_file_name_split.len();
         if crash_file_name_split_len < 4 {
-            println!("Invalid crash file name. {}", crash_file_name);
+            error!("Invalid crash file name. {}", crash_file_name);
             exit(-1);
         }
         let test_case_name = crash_file_name_split[crash_file_name_split_len - 4];
-        //println!("{}", test_case_name);
         let replay_case_name = test_case_name.replace("test", "replay");
         let replay_file_path = target_path.join(replay_case_name);
         let replay_file_name = replay_file_path.to_str().unwrap();
         if !replay_file_path.is_file() {
-            println!("Replay file not exist. {}", replay_file_name);
+            error!("Replay file not exist. {}", replay_file_name);
             exit(-1);
         }
-        //println!("{}", replay_file_name);
         let output = Command::new(replay_file_name)
             .arg(crash_file_name)
             .output()
@@ -1299,7 +1277,7 @@ fn replay_crashes(crate_name: &str) {
         let mut command = replay_file_name.to_string();
         command.push(' ');
         command.push_str(crash_file_name);
-        println!("{}", command);
+        info!("{}", command);
         print_output(output);
     }
 }
@@ -1361,10 +1339,7 @@ pub fn output_statistics(crate_name: &str) {
     println!("targets finished : {} ", finished_targets_number);
 
     let invalid_targets_number = if INVALID_TARGET_NUMBER.contains_key(crate_name) {
-        INVALID_TARGET_NUMBER
-            .get(crate_name)
-            .unwrap()
-            .to_owned()
+        INVALID_TARGET_NUMBER.get(crate_name).unwrap().to_owned()
     } else {
         0
     };
@@ -1411,7 +1386,7 @@ pub fn output_statistics_to_files(crate_name: &str, fuzz_time: usize) {
         let file_name_split: Vec<&str> = crash_file_name.split('/').collect();
         let file_name_split_len = file_name_split.len();
         if file_name_split_len < 4 {
-            println!("Invalid crash file name");
+            error!("Invalid crash file name");
             exit(-1);
         }
         let test_crate_name = file_name_split[file_name_split_len - 4];
@@ -1443,12 +1418,12 @@ pub fn output_statistics_to_files(crate_name: &str, fuzz_time: usize) {
         .append(true)
         .open(&statistic_file_path)
         .unwrap_or_else(|_| {
-            println!("can't open file {:?}.", statistic_file_path);
+            error!("can't open file {:?}.", statistic_file_path);
             exit(-1);
         });
 
     file.write_all(content.as_bytes()).unwrap_or_else(|_| {
-        println!("write file {:?} failed.", statistic_file_path);
+        error!("write file {:?} failed.", statistic_file_path);
         exit(-1);
     });
 }
@@ -1461,9 +1436,8 @@ fn showmap(crate_name: &str) {
     let tests = check_pre_condition(crate_name);
     for test in &tests {
         let out_dir = test_path.join(AFL_OUTPUT_DIR).join(test).join("default");
-        //println!("{:?}",out_dir.as_os_str());
         if !out_dir.is_dir() {
-            println!("{} has no output dir", test);
+            debug!("{} has no output dir", test);
             continue;
         }
         let target_path = test_path.join("target").join("debug").join(test);
@@ -1484,12 +1458,11 @@ fn showmap(crate_name: &str) {
             .unwrap();
         let stdout = &output.stdout;
         let stdout_content = str::from_utf8(stdout).unwrap();
-        //println!("{}", stdout_content);
         let stdout_content_lines: Vec<&str> = stdout_content.split('\n').collect();
         let stdout_lines_len = stdout_content_lines.len();
         if stdout_lines_len > 1 {
             let last_line = stdout_content_lines[stdout_lines_len - 2];
-            println!("{}", last_line);
+            debug!("{}", last_line);
         }
     }
 }
@@ -1515,7 +1488,6 @@ fn init_afl_input(crate_name: &str) {
         ensure_empty_dir(&this_afl_init_path);
         let replay_target_path = test_path.join("target").join("debug").join(&replay);
         let test_target_path = test_path.join("target").join("debug").join(test);
-        //println!("{:?}", replay_target_path);
 
         let mut has_init_file_flag = false;
 
@@ -1550,7 +1522,7 @@ fn init_afl_input(crate_name: &str) {
         //}
 
         if !has_init_file_flag {
-            println!("There's no afl input for {:?}", test);
+            debug!("There's no afl input for {:?}", test);
         } else {
             let mut cmin_name = test.clone();
             cmin_name.push_str("_cmin");
@@ -1576,8 +1548,9 @@ fn init_afl_input(crate_name: &str) {
 }
 
 fn main() {
+    let _ = env_logger::builder().parse_env("AFL_LOG").try_init();
     let args: Vec<String> = env::args().collect();
     let user_options = UserOptions::new_from_cli(args);
-    println!("{:?}", user_options);
+    trace!("{:?}", user_options);
     do_work(&user_options);
 }

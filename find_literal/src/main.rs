@@ -7,7 +7,7 @@ use regex::Regex;
 use std::collections::{BinaryHeap, HashMap};
 use std::fs;
 use std::io::{self, Write};
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 use std::process;
 
 #[derive(Debug, Clone, Default)]
@@ -182,7 +182,7 @@ pub fn walk_dir_recursive(path: &Path, all_files: &mut Vec<PathBuf>) {
         .collect::<Result<Vec<_>, io::Error>>()
         .unwrap();
     for dir_path in &dir_entries {
-        if dir_path.is_file() && is_rs_src_file(dir_path){
+        if dir_path.is_file() && is_rs_src_file(dir_path) {
             all_files.push(dir_path.clone());
         }
         if dir_path.is_dir() {
