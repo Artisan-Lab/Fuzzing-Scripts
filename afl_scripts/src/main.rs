@@ -31,28 +31,28 @@ lazy_static! {
         m.insert("url");
         m.insert("regex-syntax");
         m.insert("semver-parser");
-        m.insert("bat");
-        m.insert("xi-core-lib");
+        // m.insert("bat");
+        // m.insert("xi-core-lib");
         m.insert("clap");
         m.insert("regex");
         m.insert("serde_json");
-        m.insert("tui");
+        // m.insert("tui");
         m.insert("semver");
         m.insert("http");
         m.insert("flate2");
-        m.insert("smoltcp");
+        // m.insert("smoltcp");
         m.insert("proc-macro2");
         m.insert("time");
         m.insert("base64");
         //fudge like crates
-        m.insert("fudge_like_url");
-        m.insert("fudge_like_regex");
-        m.insert("fudge_like_time");
+        // m.insert("fudge_like_url");
+        // m.insert("fudge_like_regex");
+        // m.insert("fudge_like_time");
 
         //fudge crates
-        m.insert("fudge_url");
-        m.insert("fudge_regex");
-        m.insert("fudge_time");
+        // m.insert("fudge_url");
+        // m.insert("fudge_regex");
+        // m.insert("fudge_time");
 
         m
     };
@@ -393,7 +393,7 @@ FLAGS:
 fn do_work(user_options: &UserOptions) {
     let crate_name = user_options.crate_name.as_ref().unwrap();
     if user_options.check {
-        info!("check {} success.", crate_name);
+        info!("check {}.", crate_name);
         check_pre_condition(crate_name);
         exit(0);
     }
@@ -404,7 +404,8 @@ fn do_work(user_options: &UserOptions) {
     }
     if user_options.prepare {
         info!("prepare test files for {}.", crate_name);
-        prepare_test_files(crate_name);
+        prepare::prepare_test_files(crate_name);
+        // prepare_test_files(crate_name);
         exit(0);
     }
     if user_options.clean {
@@ -504,43 +505,43 @@ fn do_find_literal(crate_name: &str, input_number: String) {
         });
 }
 
-fn prepare_test_files(crate_name: &str) {
-    let src_dir = CRATE_SRC_DIR.get(crate_name).unwrap();
-    let src_path = PathBuf::from(src_dir);
-    let output = Command::new("cargo")
-        .current_dir(&src_path)
-        .arg("clean")
-        .output()
-        .unwrap();
-    print_output(output);
-    println!("cargo clean");
-    let output = Command::new("cargo")
-        .current_dir(&src_path)
-        .arg("doc")
-        .arg("-v")
-        .output()
-        .unwrap();
-    let stderr = str::from_utf8(output.stderr.as_slice()).unwrap();
-    let stderr_lines: Vec<&str> = stderr.split('\n').collect();
-    let stderr_lines_number = stderr_lines.len();
-    if stderr_lines_number < 3 {
-        println!("cargo doc goes wrong");
-        exit(-1);
-    }
-    let rustdoc_line = stderr_lines[stderr_lines_number - 3];
-    println!("rustdoc line = {}", rustdoc_line);
-    let pattern = Regex::new(r#"`rustdoc.+`"#).unwrap();
-    let raw_command = pattern.find(rustdoc_line).unwrap().as_str();
-    let command = raw_command.replace("rustdoc ", "").replace('`', "");
-    let command_args: Vec<&str> = command.split(' ').collect();
-    println!("command_args = {:?}", command_args);
-    let output = Command::new("fuzz-target-generator")
-        .args(command_args)
-        .current_dir(&src_dir)
-        .output()
-        .unwrap();
-    print_output(output);
-}
+// fn prepare_test_files(crate_name: &str) {
+//     let src_dir = CRATE_SRC_DIR.get(crate_name).unwrap();
+//     let src_path = PathBuf::from(src_dir);
+//     let output = Command::new("cargo")
+//         .current_dir(&src_path)
+//         .arg("clean")
+//         .output()
+//         .unwrap();
+//     print_output(output);
+//     println!("cargo clean");
+//     let output = Command::new("cargo")
+//         .current_dir(&src_path)
+//         .arg("doc")
+//         .arg("-v")
+//         .output()
+//         .unwrap();
+//     let stderr = str::from_utf8(output.stderr.as_slice()).unwrap();
+//     let stderr_lines: Vec<&str> = stderr.split('\n').collect();
+//     let stderr_lines_number = stderr_lines.len();
+//     if stderr_lines_number < 3 {
+//         println!("cargo doc goes wrong");
+//         exit(-1);
+//     }
+//     let rustdoc_line = stderr_lines[stderr_lines_number - 3];
+//     println!("rustdoc line = {}", rustdoc_line);
+//     let pattern = Regex::new(r#"`rustdoc.+`"#).unwrap();
+//     let raw_command = pattern.find(rustdoc_line).unwrap().as_str();
+//     let command = raw_command.replace("rustdoc ", "").replace('`', "");
+//     let command_args: Vec<&str> = command.split(' ').collect();
+//     println!("command_args = {:?}", command_args);
+//     let output = Command::new("fuzz-target-generator")
+//         .args(command_args)
+//         .current_dir(&src_dir)
+//         .output()
+//         .unwrap();
+//     print_output(output);
+// }
 
 pub fn print_output(output: Output) {
     let stdout = &output.stdout;
@@ -666,6 +667,7 @@ fn clean(crate_name: &str) {
 }
 
 fn init_test_dir(crate_name: &str, tests: &[String]) {
+    info!("Init test project");
     let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
     let test_path = PathBuf::from(test_dir);
     //生成输出目录
@@ -834,6 +836,7 @@ cd -",
 }
 
 fn build_afl_tests(crate_name: &str) {
+    info!("build afl projects.");
     let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
     let test_path = PathBuf::from(test_dir);
     Command::new("cargo")
@@ -1468,6 +1471,7 @@ fn showmap(crate_name: &str) {
 }
 
 fn init_afl_input(crate_name: &str) {
+    info!("init afl input for each project");
     let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
     let test_path = PathBuf::from(test_dir);
     let afl_init_path = test_path.join(AFL_INPUT_DIR);
