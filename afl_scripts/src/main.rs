@@ -20,6 +20,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 mod prepare;
+mod tmin;
 
 // const CRATES_IO_DIR: &'static str = "github.com-1ecc6299db9ec823/";
 const USTC_MIRROR_DIR: &str = "mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/";
@@ -405,7 +406,7 @@ fn do_work(user_options: &UserOptions) {
     if user_options.prepare {
         info!("prepare test files for {}.", crate_name);
         prepare::prepare_test_files(crate_name);
-        // prepare_test_files(crate_name);
+
         exit(0);
     }
     if user_options.clean {
@@ -437,7 +438,8 @@ fn do_work(user_options: &UserOptions) {
     }
     if user_options.tmin {
         info!("run afl-tmin for {}.", crate_name);
-        tmin(crate_name);
+        // tmin(crate_name);
+        tmin::multi_thread_tmin(crate_name);
         exit(0);
     }
     if user_options.cmin {
@@ -505,44 +507,6 @@ fn do_find_literal(crate_name: &str, input_number: String) {
         });
 }
 
-// fn prepare_test_files(crate_name: &str) {
-//     let src_dir = CRATE_SRC_DIR.get(crate_name).unwrap();
-//     let src_path = PathBuf::from(src_dir);
-//     let output = Command::new("cargo")
-//         .current_dir(&src_path)
-//         .arg("clean")
-//         .output()
-//         .unwrap();
-//     print_output(output);
-//     println!("cargo clean");
-//     let output = Command::new("cargo")
-//         .current_dir(&src_path)
-//         .arg("doc")
-//         .arg("-v")
-//         .output()
-//         .unwrap();
-//     let stderr = str::from_utf8(output.stderr.as_slice()).unwrap();
-//     let stderr_lines: Vec<&str> = stderr.split('\n').collect();
-//     let stderr_lines_number = stderr_lines.len();
-//     if stderr_lines_number < 3 {
-//         println!("cargo doc goes wrong");
-//         exit(-1);
-//     }
-//     let rustdoc_line = stderr_lines[stderr_lines_number - 3];
-//     println!("rustdoc line = {}", rustdoc_line);
-//     let pattern = Regex::new(r#"`rustdoc.+`"#).unwrap();
-//     let raw_command = pattern.find(rustdoc_line).unwrap().as_str();
-//     let command = raw_command.replace("rustdoc ", "").replace('`', "");
-//     let command_args: Vec<&str> = command.split(' ').collect();
-//     println!("command_args = {:?}", command_args);
-//     let output = Command::new("fuzz-target-generator")
-//         .args(command_args)
-//         .current_dir(&src_dir)
-//         .output()
-//         .unwrap();
-//     print_output(output);
-// }
-
 pub fn print_output(output: Output) {
     let stdout = &output.stdout;
     if !stdout.is_empty() {
@@ -554,8 +518,8 @@ pub fn print_output(output: Output) {
     }
 }
 
-//检查一个crate的前置条件是否满足，包括
-//test_files, replay_files, afl_init
+// 检查一个crate的前置条件是否满足，包括
+// test_files, replay_files, afl_init
 pub fn check_pre_condition(crate_name: &str) -> Vec<String> {
     check_static();
 
@@ -1042,65 +1006,6 @@ fn ensure_dir(dir: &Path) {
     }
     if !dir.is_dir() {
         fs::create_dir_all(dir).unwrap();
-    }
-}
-
-fn tmin(crate_name: &str) {
-    let all_crash_files = find_crash(crate_name);
-    let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let test_path = PathBuf::from(test_dir);
-    let tmin_output_path = test_path.join(TMIN_OUTPUT_DIR);
-    ensure_empty_dir(&tmin_output_path);
-    if all_crash_files.is_empty() {
-        warn!("No crash files.");
-        exit(-1);
-    }
-    debug!("total crashes = {}", all_crash_files.len());
-
-    let mut crash_counts = HashMap::new();
-    for crash in &all_crash_files {
-        let crash_file_name = crash.to_str().unwrap();
-        debug!("crash_file_name = {}", crash_file_name);
-        let file_name_split: Vec<&str> = crash_file_name.split('/').collect();
-        let file_name_split_len = file_name_split.len();
-        if file_name_split_len < 4 {
-            error!("Invalid crash file name");
-            exit(-1);
-        }
-        let test_crate_name = file_name_split[file_name_split_len - 4];
-        let test_tmin_output_path = tmin_output_path.clone().join(test_crate_name);
-        ensure_dir(&test_tmin_output_path);
-        let crash_count = if crash_counts.contains_key(test_crate_name) {
-            let current_count = *(crash_counts.get(test_crate_name).unwrap()) + 1;
-            crash_counts.insert(test_crate_name, current_count);
-            current_count
-        } else {
-            crash_counts.insert(test_crate_name, 1);
-            1
-        };
-        let target_path = test_path
-            .clone()
-            .join("target")
-            .join(EDITION)
-            .join(test_crate_name);
-        let target_file_name = target_path.to_str().unwrap();
-        let tmin_output_file = test_tmin_output_path.join(crash_count.to_string());
-        let tmin_output_filename = tmin_output_file.to_str().unwrap();
-        let tmin_input_filename = crash.to_str().unwrap();
-        let args = vec![
-            "afl",
-            "tmin",
-            "-i",
-            tmin_input_filename,
-            "-o",
-            tmin_output_filename,
-            target_file_name,
-        ];
-        Command::new("cargo")
-            .args(args)
-            .stdout(Stdio::null())
-            .status()
-            .unwrap();
     }
 }
 
