@@ -19,8 +19,6 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-mod prepare;
-
 // const CRATES_IO_DIR: &'static str = "github.com-1ecc6299db9ec823/";
 const USTC_MIRROR_DIR: &str = "mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/";
 const USER_HOME: &str = "/home/jjf/";
@@ -351,10 +349,10 @@ impl UserOptions {
             error!("Invalid Options.");
             exit(-1);
         }
-        if self.crate_name.is_none() {
+        /* if self.crate_name.is_none() {
             error!("No valid crate is provided.");
             exit(-1);
-        }
+        } */
     }
 }
 
@@ -391,7 +389,7 @@ FLAGS:
 }
 
 fn do_work(user_options: &UserOptions) {
-    let crate_name = user_options.crate_name.as_ref().unwrap();
+    let crate_name = &String::new();
     if user_options.check {
         info!("check {} success.", crate_name);
         check_pre_condition(crate_name);
@@ -485,17 +483,20 @@ fn do_work(user_options: &UserOptions) {
 }
 
 fn do_find_literal(crate_name: &str, input_number: String) {
-    let input_dir = CRATE_SRC_DIR.get(crate_name).unwrap().to_string();
-    let output_dir = CRATE_TEST_DIR.get(crate_name).unwrap().to_string();
+    let input_dir=std::env::current_dir().unwrap();
+    //let input_dir = CRATE_SRC_DIR.get(crate_name).unwrap().to_string();
+    let mut output_dir = std::env::current_dir().unwrap();
+    output_dir.push("fuzz_target");
+    fs::create_dir_all(&output_dir).unwrap();
     let args = vec![
         "-i",
-        input_dir.as_str(),
+        input_dir.to_str().unwrap(),
         "-o",
-        output_dir.as_str(),
+        output_dir.to_str().unwrap(),
         "-n",
         input_number.as_str(),
     ];
-    Command::new("find_literal")
+    let output=Command::new("find_literal")
         .args(args)
         .output()
         .unwrap_or_else(|_| {
@@ -505,17 +506,17 @@ fn do_find_literal(crate_name: &str, input_number: String) {
 }
 
 fn prepare_test_files(crate_name: &str) {
-    let src_dir = CRATE_SRC_DIR.get(crate_name).unwrap();
-    let src_path = PathBuf::from(src_dir);
+    //let src_dir = CRATE_SRC_DIR.get(crate_name).unwrap();
+    let current_dir=std::env::current_dir().unwrap();
     let output = Command::new("cargo")
-        .current_dir(&src_path)
+        //.current_dir(&current_dir)
         .arg("clean")
         .output()
         .unwrap();
     print_output(output);
     println!("cargo clean");
     let output = Command::new("cargo")
-        .current_dir(&src_path)
+        //.current_dir(&src_path)
         .arg("doc")
         .arg("-v")
         .output()
@@ -536,10 +537,11 @@ fn prepare_test_files(crate_name: &str) {
     println!("command_args = {:?}", command_args);
     let output = Command::new("fuzz-target-generator")
         .args(command_args)
-        .current_dir(&src_dir)
+        //.current_dir(&src_dir)
         .output()
         .unwrap();
     print_output(output);
+    
 }
 
 pub fn print_output(output: Output) {
