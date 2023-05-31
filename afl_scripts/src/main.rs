@@ -19,175 +19,6 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-// const CRATES_IO_DIR: &'static str = "github.com-1ecc6299db9ec823/";
-const USTC_MIRROR_DIR: &str = "mirrors.ustc.edu.cn-61ef6e0cd06fb9b8/";
-const USER_HOME: &str = "/home/jjf/";
-
-lazy_static! {
-    static ref CRATES: HashSet<&'static str> = {
-        let mut m = HashSet::new();
-        m.insert("url");
-        m.insert("regex-syntax");
-        m.insert("semver-parser");
-        m.insert("bat");
-        m.insert("xi-core-lib");
-        m.insert("clap");
-        m.insert("regex");
-        m.insert("serde_json");
-        m.insert("tui");
-        m.insert("semver");
-        m.insert("http");
-        m.insert("flate2");
-        m.insert("smoltcp");
-        m.insert("proc-macro2");
-        m.insert("time");
-        m.insert("base64");
-        //fudge like crates
-        m.insert("fudge_like_url");
-        m.insert("fudge_like_regex");
-        m.insert("fudge_like_time");
-
-        //fudge crates
-        m.insert("fudge_url");
-        m.insert("fudge_regex");
-        m.insert("fudge_time");
-
-        m
-    };
-}
-
-lazy_static! {
-    static ref CRATE_SRC_DIR: HashMap<&'static str, String> = {
-        let mut m = HashMap::new();
-        let src_directory = USER_HOME.to_string() + ".cargo/registry/src/" + USTC_MIRROR_DIR;
-        m.insert("url", src_directory.clone() + "url-2.2.0");
-        m.insert("regex-syntax", src_directory.clone() + "regex-syntax-0.6.22");
-        m.insert("semver-parser", src_directory.clone() + "semver-parser-0.10.2");
-        m.insert("bat", "/home/jjf/bat".to_string());
-        m.insert("xi-core-lib", "/home/jjf/xi-editor/rust".to_string());
-        m.insert("clap", src_directory.clone() + "clap-2.33.3");
-        m.insert("regex", src_directory.clone() + "regex-1.4.3");
-        m.insert("serde_json", src_directory.clone() + "serde_json-1.0.61");
-        m.insert("tui", "/home/jjf/tui-rs".to_string());
-        m.insert("semver", src_directory.clone() + "semver-0.11.0");
-        m.insert("http", src_directory.clone() + "http-0.2.6");
-        m.insert("flate2", src_directory.clone() + "flate2-1.0.19");
-        m.insert("smoltcp", "/home/jjf/smoltcp".to_string());
-        m.insert("proc-macro2", src_directory.clone() + "proc-macro2-1.0.24");
-        m.insert("time", src_directory.clone() + "time-0.2.24");
-        m.insert("base64", src_directory + "base64-0.13.0");
-
-        //fudge_like
-        m.insert("fudge_like_url", "/home/jjf/Fudge-Like-Targets/url/fudge_like_url".to_string());
-        m.insert("fudge_like_regex", "/home/jjf/Fudge-Like-Targets/regex/fudge_like_regex".to_string());
-        m.insert("fudge_like_time", "/home/jjf/Fudge-Like-Targets/time/fudge_like_time".to_string());
-
-        //fudge
-        m.insert("fudge_url", "/home/jjf/Fudge-Like-Targets/url/fudge_url".to_string());
-        m.insert("fudge_regex", "/home/jjf/Fudge-Like-Targets/regex/fudge_regex".to_string());
-        m.insert("fudge_time", "/home/jjf/Fudge-Like-Targets/time/fudge_time".to_string());
-        m
-    };
-}
-
-lazy_static! {
-    static ref CRATE_TEST_DIR: HashMap<&'static str, &'static str> = {
-        let mut m = HashMap::new();
-        m.insert("url", "/home/jjf/afl_fast_work/url_afl_work");
-        m.insert("regex-syntax", "/home/jjf/afl_fast_work/regex-syntax-afl-work");
-        m.insert("semver-parser", "/home/jjf/afl_fast_work/semver-parser-afl-work");
-        m.insert("bat", "/home/jjf/afl_fast_work/bat-afl-work");
-        m.insert("xi-core-lib", "/home/jjf/afl_fast_work/xi-core-lib-afl-work");
-        m.insert("clap", "/home/jjf/afl_fast_work/clap-afl-work");
-        m.insert("regex", "/home/jjf/afl_fast_work/regex-afl-work");
-        m.insert("serde_json", "/home/jjf/afl_fast_work/serde-json-afl-work");
-        m.insert("tui", "/home/jjf/afl_fast_work/tui-afl-work");
-        m.insert("semver", "/home/jjf/afl_fast_work/semver-afl-work");
-        m.insert("http", "/home/jjf/afl_fast_work/http-afl-work");
-        m.insert("flate2", "/home/jjf/afl_fast_work/flate2-afl-work");
-        m.insert("smoltcp", "/home/jjf/afl_fast_work/smoltcp-afl-work");
-        m.insert("proc-macro2", "/home/jjf/afl_fast_work/proc-macro2-afl-work");
-        m.insert("time", "/home/jjf/afl_fast_work/time-afl-work");
-        m.insert("base64", "/home/jjf/afl_fast_work/base64-afl-work");
-        //fudge like project
-        m.insert("fudge_like_url", "/home/jjf/fudge_like_work/url-work");
-        m.insert("fudge_like_regex", "/home/jjf/fudge_like_work/regex-work");
-        m.insert("fudge_like_time", "/home/jjf/fudge_like_work/time-work");
-
-        //fudge project
-        m.insert("fudge_url", "/home/jjf/fudge_work/url-work");
-        m.insert("fudge_regex", "/home/jjf/fudge_work/regex-work");
-        m.insert("fudge_time", "/home/jjf/fudge_work/time-work");
-
-        m
-    };
-}
-
-lazy_static! {
-    static ref CRATE_VERSION: HashMap<&'static str, &'static str> = {
-        let mut m = HashMap::new();
-        m.insert("url", "\"= 2.2.0\"");
-        m.insert("regex-syntax", "\"= 0.6.22\"");
-        m.insert("semver-parser", "\"= 0.10.2\"");
-        m.insert("bat", "\"*\"");
-        m.insert("xi-core-lib", "\"*\"");
-        m.insert("clap", "\"= 2.33.3\"");
-        m.insert("regex", "\"= 1.4.3\"");
-        m.insert("serde_json", "\"= 1.0.61\"");
-        m.insert("tui", "\"*\"");
-        m.insert("semver", "\"= 0.11.0\"");
-        m.insert("http", "\"= 0.2.6\"");
-        m.insert("flate2", "\"= 1.0.19\"");
-        m.insert("smoltcp", "\"*\"");
-        m.insert("proc-macro2", "\"= 1.0.24\"");
-        m.insert("time", "\"= 0.2.24\"");
-        m.insert("base64", "\"= 0.13.0\"");
-
-        //fudge_like
-        m.insert("fudge_like_url", "\"*\"");
-        m.insert("fudge_like_regex", "\"*\"");
-        m.insert("fudge_like_time", "\"*\"");
-
-        //fudge
-        m.insert("fudge_url", "\"*\"");
-        m.insert("fudge_regex", "\"*\"");
-        m.insert("fudge_time", "\"*\"");
-        m
-    };
-}
-
-lazy_static! {
-    static ref CRATE_PATCH_PATH: HashMap<&'static str, &'static str> = {
-        let mut m = HashMap::new();
-        //m.insert("url", "{path=\"/home/jjf/rust-url/url\"}");
-        m.insert("bat", "{path=\"/home/jjf/bat\"}");
-        m.insert("xi-core-lib", "{path=\"/home/jjf/xi-editor/rust/core-lib\"}");
-        m.insert("tui", "{path=\"/home/jjf/tui-rs\"}");
-        m.insert("smoltcp", "{path=\"/home/jjf/smoltcp\"}");
-
-        //fudge-like
-        m.insert("fudge_like_url", "{path=\"/home/jjf/Fudge-Like-Targets/url/fudge_like_url\"}");
-        m.insert("fudge_like_regex", "{path=\"/home/jjf/Fudge-Like-Targets/regex/fudge_like_regex\"}");
-        m.insert("fudge_like_time", "{path=\"/home/jjf/Fudge-Like-Targets/time/fudge_like_time\"}");
-
-        //fudge
-        m.insert("fudge_url", "{path=\"/home/jjf/Fudge-Like-Targets/url/fudge_url\"}");
-        m.insert("fudge_regex", "{path=\"/home/jjf/Fudge-Like-Targets/regex/fudge_regex\"}");
-        m.insert("fudge_time", "{path=\"/home/jjf/Fudge-Like-Targets/time/fudge_time\"}");
-        m
-    };
-}
-
-lazy_static! {
-    static ref INVALID_TARGET_NUMBER: HashMap<&'static str, usize> = {
-        let mut m = HashMap::new();
-        m.insert("proc-macro2", 1);
-        m.insert("clap", 4);
-        m.insert("syn", 1);
-        m
-    };
-}
-
 const CRASH_DIR: &str = "default/crashes";
 const TEST_FILE_DIR: &str = "test_files";
 const REPLAY_FILE_DIR: &str = "replay_files";
@@ -195,13 +26,44 @@ const AFL_INPUT_DIR: &str = "afl_init";
 const AFL_OUTPUT_DIR: &str = "out";
 const CARGO_TOML: &str = "Cargo.toml";
 const BUILD_SCRIPT: &str = "build";
-const AFL_DEPENDENCY: &str = "afl = \"=0.11.1\"";
+const AFL_DEPENDENCY: &str = "afl = \"*\"";
 const TMIN_OUTPUT_DIR: &str = "tmin_output";
 const CMIN_OUTPUT_DIR: &str = "cmin_output";
 const STATISTIC_OUTPUT_FILE: &str = "statistics";
-const EDITION: &str = "debug";
 const EXIT_TIME_DIR: &str = "exit_time";
 const SHOWMAP_DIR: &str = "showmap";
+
+pub struct Config {
+    pub crate_name: String,
+    pub crate_dir: PathBuf,
+    pub test_dir: PathBuf,
+    pub build_dir: PathBuf,
+    pub afl_input_dir: PathBuf,
+    pub afl_output_dir: PathBuf,
+    pub target_dir: PathBuf,
+}
+
+impl Config {
+    fn new(crate_name: &str, crate_dir: &Path) -> Config {
+        let crate_name = crate_name.to_owned();
+        let crate_dir = crate_dir.to_owned();
+        let test_dir = crate_dir.join("fuzz_target");
+        let build_dir = test_dir.join("build");
+        let afl_input_dir = test_dir.join(AFL_INPUT_DIR);
+        let afl_output_dir = test_dir.join(AFL_OUTPUT_DIR);
+        let target_dir = build_dir.join("target").join("debug");
+
+        Config {
+            crate_name,
+            crate_dir,
+            test_dir,
+            build_dir,
+            afl_input_dir,
+            afl_output_dir,
+            target_dir,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 struct UserOptions {
@@ -253,7 +115,7 @@ impl UserOptions {
         let mut args_iter = args.iter();
         let _ = args_iter.next(); //把程序名字跳过
 
-        let list_option = Regex::new("(-l$|--list)").unwrap();
+        //let list_option = Regex::new("(-l$|--list)").unwrap();
         let find_literal_option = Regex::new("(-f$|--find-literal)").unwrap();
         let check_option = Regex::new("(-c$|--check)").unwrap();
         let clean_option = Regex::new("-clean").unwrap();
@@ -271,10 +133,6 @@ impl UserOptions {
         let init_afl_input_option = Regex::new("(-i$|--init)").unwrap();
 
         while let Some(s) = args_iter.next() {
-            if list_option.is_match(s.as_str()) {
-                list_crates();
-                exit(0);
-            }
             if help_option.is_match(s.as_str()) {
                 println!("{}", help_message());
                 exit(0);
@@ -342,7 +200,7 @@ impl UserOptions {
                 self.init_afl_input = true;
                 continue;
             }
-            if self.crate_name.is_none() && CRATES.contains(s.as_str()) {
+            if self.crate_name.is_none() {
                 self.crate_name = Some(s.clone());
                 continue;
             }
@@ -353,12 +211,6 @@ impl UserOptions {
             error!("No valid crate is provided.");
             exit(-1);
         } */
-    }
-}
-
-fn list_crates() {
-    for crate_name in CRATES.iter() {
-        println!("{}", crate_name);
     }
 }
 
@@ -389,10 +241,14 @@ FLAGS:
 }
 
 fn do_work(user_options: &UserOptions) {
-    let crate_name = &String::new();
+    let crate_string = user_options.crate_name.clone().unwrap_or_default();
+    let crate_name = crate_string.as_str();
+    let current_dir = std::env::current_dir().unwrap();
+    let config = Config::new(crate_name, &current_dir);
+
     if user_options.check {
         info!("check {} success.", crate_name);
-        check_pre_condition(crate_name);
+        check_pre_condition(&config);
         exit(0);
     }
     if user_options.find_literal.is_some() {
@@ -407,83 +263,92 @@ fn do_work(user_options: &UserOptions) {
     }
     if user_options.clean {
         info!("clean {}.", crate_name);
-        clean(crate_name);
+        clean(&config);
         exit(0);
     }
     if user_options.crash {
         info!("find crash files for {}.", crate_name);
-        print_crashes(crate_name);
+        print_crashes(&config);
         exit(0);
     }
 
     if user_options.build {
         info!("build {}.", crate_name);
-        let tests = check_pre_condition(crate_name);
-        init_test_dir(crate_name, &tests);
-        build_afl_tests(crate_name);
-        init_afl_input(crate_name);
-        check_build(crate_name, &tests);
+        let tests = check_pre_condition(&config);
+        info!("init test dir");
+        init_test_dir(&config, &tests);
+        info!("build afl tests");
+        build_afl_tests(&config);
+        info!("init afl input");
+        init_afl_input(&config);
+        info!("check build");
+        check_build(&config, &tests);
         exit(0);
     }
     if user_options.fuzz {
         info!("fuzz {}.", crate_name);
-        let tests = check_pre_condition(crate_name);
-        check_build(crate_name, &tests);
-        fuzz_it(crate_name, &tests);
+        let tests = check_pre_condition(&config);
+        let test_dir = std::env::current_dir().unwrap();
+        let build_dir = test_dir.join("build");
+        check_build(&config, &tests);
+        fuzz_it(&config, &tests);
         exit(0);
     }
     if user_options.tmin {
         info!("run afl-tmin for {}.", crate_name);
-        tmin(crate_name);
+        tmin(&config);
         exit(0);
     }
     if user_options.cmin {
         info!("run afl-cmin for {}", crate_name);
-        cmin(crate_name);
+        cmin(&config);
         exit(0);
     }
     if user_options.replay {
         info!("replay crash files for {}.", crate_name);
-        replay_crashes(crate_name);
+        replay_crashes(&config);
         exit(0);
     }
     if user_options.statistic {
         info!("statistics for {}.", crate_name);
-        output_statistics(crate_name);
+        output_statistics(&config);
         exit(0);
     }
     if user_options.showmap {
         info!("run afl-showmap for {}.", crate_name);
-        showmap(crate_name);
+        showmap(&config);
         exit(0);
     }
     if user_options.init_afl_input {
+        let test_dir = std::env::current_dir().unwrap().join("build");
         info!("init afl input for {}.", crate_name);
-        let tests = check_pre_condition(crate_name);
-        check_build(crate_name, &tests);
-        init_afl_input(crate_name);
+        let tests = check_pre_condition(&config);
+        check_build(&config, &tests);
+        init_afl_input(&config);
         exit(0);
     }
     if user_options.all {
-        let tests = check_pre_condition(crate_name);
+        unreachable!();
+        /* let tests = check_pre_condition(crate_name);
         clean(crate_name);
         init_test_dir(crate_name, &tests);
         build_afl_tests(crate_name);
         init_afl_input(crate_name);
         check_build(crate_name, &tests);
         fuzz_it(crate_name, &tests);
-        exit(0);
+        exit(0); */
     }
     //default work
-    let tests = check_pre_condition(crate_name);
+    info!("Nothing to do!");
+    /* let tests = check_pre_condition(crate_name);
     init_test_dir(crate_name, &tests);
     build_afl_tests(crate_name);
     check_build(crate_name, &tests);
-    fuzz_it(crate_name, &tests);
+    fuzz_it(crate_name, &tests); */
 }
 
 fn do_find_literal(crate_name: &str, input_number: String) {
-    let input_dir=std::env::current_dir().unwrap();
+    let input_dir = std::env::current_dir().unwrap();
     //let input_dir = CRATE_SRC_DIR.get(crate_name).unwrap().to_string();
     let mut output_dir = std::env::current_dir().unwrap();
     output_dir.push("fuzz_target");
@@ -496,7 +361,7 @@ fn do_find_literal(crate_name: &str, input_number: String) {
         "-n",
         input_number.as_str(),
     ];
-    let output=Command::new("find_literal")
+    let output = Command::new("find_literal")
         .args(args)
         .output()
         .unwrap_or_else(|_| {
@@ -507,7 +372,7 @@ fn do_find_literal(crate_name: &str, input_number: String) {
 
 fn prepare_test_files(crate_name: &str) {
     //let src_dir = CRATE_SRC_DIR.get(crate_name).unwrap();
-    let current_dir=std::env::current_dir().unwrap();
+    let current_dir = std::env::current_dir().unwrap();
     let output = Command::new("cargo")
         //.current_dir(&current_dir)
         .arg("clean")
@@ -541,7 +406,6 @@ fn prepare_test_files(crate_name: &str) {
         .output()
         .unwrap();
     print_output(output);
-    
 }
 
 pub fn print_output(output: Output) {
@@ -557,18 +421,15 @@ pub fn print_output(output: Output) {
 
 //检查一个crate的前置条件是否满足，包括
 //test_files, replay_files, afl_init
-pub fn check_pre_condition(crate_name: &str) -> Vec<String> {
-    check_static();
+pub fn check_pre_condition(config: &Config) -> Vec<String> {
+    let crate_test_dir = &config.test_dir;
 
-    let crate_test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let crate_test_path = PathBuf::from(crate_test_dir);
-
-    let afl_init_dir = crate_test_path.join(AFL_INPUT_DIR);
+    let afl_init_dir = &config.afl_input_dir;
     check_no_empty_directory(&afl_init_dir);
-    let test_file_dir = crate_test_path.join(TEST_FILE_DIR);
+    let test_file_dir = crate_test_dir.join(TEST_FILE_DIR);
     let test_file_entries = check_no_empty_directory(&test_file_dir);
 
-    let replay_file_dir = crate_test_path.join(REPLAY_FILE_DIR);
+    let replay_file_dir = crate_test_dir.join(REPLAY_FILE_DIR);
     let replay_file_entries = check_no_empty_directory(&replay_file_dir);
 
     let mut test_filenames = Vec::new();
@@ -585,23 +446,6 @@ pub fn check_pre_condition(crate_name: &str) -> Vec<String> {
         }
     }
     test_filenames
-}
-
-fn check_static() {
-    for crate_name in CRATES.iter() {
-        if !CRATE_SRC_DIR.contains_key(crate_name) {
-            error!("{} not set src dir.", crate_name);
-            exit(-1);
-        }
-        if !CRATE_TEST_DIR.contains_key(crate_name) {
-            error!("{} not set test dir.", crate_name);
-            exit(-1);
-        }
-        if !CRATE_VERSION.contains_key(crate_name) {
-            error!("{} not set version", crate_name);
-            exit(-1);
-        }
-    }
 }
 
 fn check_maybe_empty_directory(dir: &Path) -> Vec<PathBuf> {
@@ -643,10 +487,9 @@ fn last_file_name(path: &Path) -> &str {
     filename.last().unwrap()
 }
 
-fn clean(crate_name: &str) {
+fn clean(config: &Config) {
     let except_files = vec![AFL_INPUT_DIR, REPLAY_FILE_DIR, TEST_FILE_DIR];
-    let crate_test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let test_path = PathBuf::from(crate_test_dir);
+    let test_path = PathBuf::from(&config.test_dir);
 
     let file_entries = check_maybe_empty_directory(&test_path);
     for file_entry in &file_entries {
@@ -667,18 +510,26 @@ fn clean(crate_name: &str) {
     }
 }
 
-fn init_test_dir(crate_name: &str, tests: &[String]) {
-    let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let test_path = PathBuf::from(test_dir);
+fn init_test_dir(config: &Config, tests: &[String]) {
+    let build_dir = &config.build_dir;
+
+    // remove old build directory
+    if build_dir.exists() {
+        fs::remove_dir_all(&build_dir).expect("remove build directory fail!");
+    }
+    fs::create_dir(&build_dir).expect("crate build directory fail");
+
     //生成输出目录
-    let output_dir = test_path.join(AFL_OUTPUT_DIR);
-    fs::create_dir_all(&output_dir).unwrap_or_else(|_| {
-        error!("Encounter error when creating {:?}.", output_dir);
+    fs::create_dir_all(&&config.afl_output_dir).unwrap_or_else(|_| {
+        error!(
+            "Encounter error when creating {:?}.",
+            &&config.afl_output_dir
+        );
         exit(-1);
     });
 
     //生成cargo.toml内容
-    let cargo_toml_path = test_path.join(CARGO_TOML);
+    let cargo_toml_path = build_dir.join(CARGO_TOML);
     let mut cargo_toml_file = fs::File::create(&cargo_toml_path).unwrap_or_else(|_| {
         error!("Encounter error when creating {:?}.", cargo_toml_path);
         exit(-1);
@@ -691,36 +542,32 @@ fn init_test_dir(crate_name: &str, tests: &[String]) {
             exit(-1);
         });
 
-    //对于每个test_file新建项目
+    //对于每个test_file和replay_file新建项目
+    let mut replays = Vec::new();
     for test in tests {
-        let test_cargo_path = test_path.clone().join(test);
-        let _ = Command::new("cargo")
-            .arg("new")
+        let test_cargo_path = build_dir.clone().join(test);
+        let replay = test.clone().replace("test", "replay");
+        let replay_cargo_path = build_dir.clone().join(&replay);
+        replays.push(replay);
+        Command::new("cargo")
+            .args(["new", "--vcs", "none"])
             .arg(test_cargo_path.as_os_str())
             .output()
             .unwrap();
-    }
-
-    //对于每个replay_file新建项目
-    let mut replays = Vec::new();
-    for test in tests {
-        let replay = test.clone().replace("test", "replay");
-        let replay_cargo_path = test_path.clone().join(&replay);
-        replays.push(replay);
-        let _ = Command::new("cargo")
-            .arg("new")
+        Command::new("cargo")
+            .args(["new", "--vcs", "none"])
             .arg(replay_cargo_path.as_os_str())
             .output()
             .unwrap();
     }
 
     //生成build script(貌似没必要)
-    let build_script_path = test_path.join(BUILD_SCRIPT);
+    /* let build_script_path = build_dir.join(BUILD_SCRIPT);
     let mut build_script_file = fs::File::create(&build_script_path).unwrap_or_else(|_| {
         error!("Encounter error when creating {:?}.", build_script_path);
         exit(-1);
     });
-    let build_script = build_script_content(&test_path);
+    let build_script = build_script_content(&build_dir);
     build_script_file
         .write_all(build_script.as_bytes())
         .unwrap_or_else(|_| {
@@ -731,67 +578,47 @@ fn init_test_dir(crate_name: &str, tests: &[String]) {
         .arg("+x")
         .arg(build_script_path.as_os_str())
         .status()
-        .unwrap();
+        .unwrap(); */
 
-    //为每个test crate添加依赖
-    for test in tests {
-        let test_cargo_toml_path = test_path.clone().join(test).join(CARGO_TOML);
+    let add_dependency_file = |crate_name: &str, path: PathBuf| {
+        let cargo_toml_path = path.join(CARGO_TOML);
         let mut file = OpenOptions::new()
             .append(true)
-            .open(&test_cargo_toml_path)
+            .open(&cargo_toml_path)
             .unwrap_or_else(|_| {
-                error!("can't open file {:?}.", test_cargo_toml_path);
+                error!("can't open file {:?}.", cargo_toml_path);
                 exit(-1);
             });
         file.write_all(AFL_DEPENDENCY.as_bytes())
             .unwrap_or_else(|_| {
-                error!("write file {:?} failed.", test_cargo_toml_path);
+                error!("write file {:?} failed.", cargo_toml_path);
                 exit(-1);
             });
         file.write_all("\n".as_bytes()).unwrap();
-        let version = if CRATE_PATCH_PATH.contains_key(crate_name) {
-            CRATE_PATCH_PATH.get(crate_name).unwrap()
-        } else {
-            CRATE_VERSION.get(crate_name).unwrap()
-        };
-
-        let crate_dependency = format!("{} = {}\n", crate_name, version);
+        let crate_dependency = format!("{} = {{path='../../../'}}\n", crate_name);
         file.write_all(crate_dependency.as_bytes())
             .unwrap_or_else(|_| {
-                error!("write file {:?} failed.", test_cargo_toml_path);
+                error!("write file {:?} failed.", cargo_toml_path);
                 exit(-1);
             });
+    };
+
+    //为每个test crate添加依赖
+    for test in tests {
+        add_dependency_file(&&config.crate_name, build_dir.join(test));
     }
 
     //为每个replay crate添加依赖
     for replay in &replays {
-        let replay_cargo_toml_path = test_path.clone().join(replay).join(CARGO_TOML);
-        let mut file = OpenOptions::new()
-            .append(true)
-            .open(&replay_cargo_toml_path)
-            .unwrap_or_else(|_| {
-                error!("can't open file {:?}.", replay_cargo_toml_path);
-                exit(-1);
-            });
-        let version = if CRATE_PATCH_PATH.contains_key(crate_name) {
-            CRATE_PATCH_PATH.get(crate_name).unwrap()
-        } else {
-            CRATE_VERSION.get(crate_name).unwrap()
-        };
-        let crate_dependency = format!("{} = {}\n", crate_name, version);
-        file.write_all(crate_dependency.as_bytes())
-            .unwrap_or_else(|_| {
-                error!("write file {:?} failed.", replay_cargo_toml_path);
-                exit(-1);
-            });
+        add_dependency_file(&&config.crate_name, build_dir.join(replay));
     }
 
     //复制测试文件
     for test in tests {
-        let to_path = test_path.clone().join(test).join("src").join("main.rs");
+        let to_path = build_dir.clone().join(test).join("src").join("main.rs");
         let mut test_name = test.clone();
         test_name.push_str(".rs");
-        let from_path = test_path.clone().join(TEST_FILE_DIR).join(test_name);
+        let from_path = build_dir.clone().join(TEST_FILE_DIR).join(test_name);
         Command::new("cp")
             .arg(from_path.as_os_str())
             .arg(to_path.as_os_str())
@@ -801,10 +628,10 @@ fn init_test_dir(crate_name: &str, tests: &[String]) {
 
     //复制replay文件
     for replay in &replays {
-        let to_path = test_path.clone().join(replay).join("src").join("main.rs");
+        let to_path = build_dir.clone().join(replay).join("src").join("main.rs");
         let mut replay_name = replay.clone();
         replay_name.push_str(".rs");
-        let from_path = test_path.clone().join(REPLAY_FILE_DIR).join(replay_name);
+        let from_path = build_dir.clone().join(REPLAY_FILE_DIR).join(replay_name);
         Command::new("cp")
             .arg(from_path.as_os_str())
             .arg(to_path.as_os_str())
@@ -835,22 +662,18 @@ cd -",
     .replace('\"', "")
 }
 
-fn build_afl_tests(crate_name: &str) {
-    let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let test_path = PathBuf::from(test_dir);
+fn build_afl_tests(config: &Config) {
     Command::new("cargo")
         .arg("afl")
         .arg("build")
         .arg("--offline")
-        .current_dir(test_path.as_os_str())
+        .current_dir(&config.build_dir)
         .output()
         .unwrap();
 }
 
-fn check_build(crate_name: &str, tests: &[String]) {
-    let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let test_path = PathBuf::from(test_dir);
-    let target_path = test_path.join("target").join(EDITION);
+fn check_build(config: &Config, tests: &[String]) {
+    let target_path = &config.target_dir;
 
     let mut flag = true;
     for test in tests {
@@ -873,11 +696,10 @@ fn check_build(crate_name: &str, tests: &[String]) {
     }
 }
 
-fn fuzz_it(crate_name: &str, tests: &[String]) {
-    let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let test_path = PathBuf::from(test_dir);
-    let target_path = test_path.join("target").join(EDITION);
-    let output_path = test_path.join("out");
+fn fuzz_it(config: &Config, tests: &[String]) {
+    let test_path = PathBuf::from(&config.build_dir);
+    let target_path = &config.target_dir;
+    let output_path = &config.afl_output_dir;
     let exit_time_path = test_path.join(EXIT_TIME_DIR);
     ensure_empty_dir(&exit_time_path);
 
@@ -971,7 +793,7 @@ fn fuzz_it(crate_name: &str, tests: &[String]) {
         thread::sleep(Duration::from_secs(60));
         minute_count += 1;
         info!("fuzz has run {} minutes.", minute_count);
-        output_statistics_to_files(crate_name, minute_count);
+        output_statistics_to_files(config, minute_count);
         let exit_threads_number = val.as_ref().load(Ordering::SeqCst);
         info!(
             "{} threads has exited, there's still {} threads running",
@@ -994,10 +816,8 @@ fn fuzz_it(crate_name: &str, tests: &[String]) {
     }
 }
 
-fn find_crash(crate_name: &str) -> Vec<PathBuf> {
-    let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let test_path = PathBuf::from(test_dir);
-    let afl_output_path = test_path.join(AFL_OUTPUT_DIR);
+fn find_crash(config: &Config) -> Vec<PathBuf> {
+    let afl_output_path = &config.afl_output_dir;
     let test_output_paths = check_maybe_empty_directory(&afl_output_path);
     let mut all_crash_files = Vec::new();
     for test_output_path in &test_output_paths {
@@ -1013,8 +833,8 @@ fn find_crash(crate_name: &str) -> Vec<PathBuf> {
     all_crash_files
 }
 
-fn print_crashes(crate_name: &str) {
-    let all_crash_files = find_crash(crate_name);
+fn print_crashes(config:&Config) {
+    let all_crash_files = find_crash(config);
     if all_crash_files.is_empty() {
         error!("Find no crash files");
         exit(-1);
@@ -1044,10 +864,9 @@ fn ensure_dir(dir: &Path) {
     }
 }
 
-fn tmin(crate_name: &str) {
-    let all_crash_files = find_crash(crate_name);
-    let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let test_path = PathBuf::from(test_dir);
+fn tmin(config: &Config) {
+    let all_crash_files = find_crash(config);
+    let test_path = PathBuf::from(&config.build_dir);
     let tmin_output_path = test_path.join(TMIN_OUTPUT_DIR);
     ensure_empty_dir(&tmin_output_path);
     if all_crash_files.is_empty() {
@@ -1077,11 +896,7 @@ fn tmin(crate_name: &str) {
             crash_counts.insert(test_crate_name, 1);
             1
         };
-        let target_path = test_path
-            .clone()
-            .join("target")
-            .join(EDITION)
-            .join(test_crate_name);
+        let target_path = &config.target_dir.join(test_crate_name);
         let target_file_name = target_path.to_str().unwrap();
         let tmin_output_file = test_tmin_output_path.join(crash_count.to_string());
         let tmin_output_filename = tmin_output_file.to_str().unwrap();
@@ -1103,12 +918,11 @@ fn tmin(crate_name: &str) {
     }
 }
 
-fn cmin(crate_name: &str) {
-    let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let test_path = PathBuf::from(test_dir);
-    let cmin_output_path = test_path.join(CMIN_OUTPUT_DIR);
+fn cmin(config: &Config) {
+    let test_dir = &config.build_dir;
+    let cmin_output_path = test_dir.join(CMIN_OUTPUT_DIR);
     //如果有tmin的output，首先去找tmin的output
-    let tmin_output_dir = test_path.join(TMIN_OUTPUT_DIR);
+    let tmin_output_dir = test_dir.join(TMIN_OUTPUT_DIR);
     if tmin_output_dir.is_dir() {
         let tmin_directories = check_maybe_empty_directory(&tmin_output_dir);
         if !tmin_directories.is_empty() {
@@ -1121,7 +935,7 @@ fn cmin(crate_name: &str) {
                     tmin_directory_name,
                     test_case_name,
                     &cmin_output_path,
-                    &test_path,
+                    &&config.target_dir,
                 )
             }
             return;
@@ -1129,7 +943,7 @@ fn cmin(crate_name: &str) {
     }
 
     //如果没能找到tmin的结果，直接去找crash dir
-    let afl_output_path = test_path.join(AFL_OUTPUT_DIR);
+    let afl_output_path = test_dir.join(AFL_OUTPUT_DIR);
     let test_output_paths = check_maybe_empty_directory(&afl_output_path);
 
     let mut nonempty_crash_dir = Vec::new();
@@ -1164,7 +978,7 @@ fn cmin(crate_name: &str) {
             crash_dir_name,
             test_case_name,
             &cmin_output_path,
-            &test_path,
+            &&config.target_dir,
         );
         //print_output(output);
     }
@@ -1174,17 +988,13 @@ fn execute_cmin(
     crash_dir_name: &str,
     test_case_name: &str,
     cmin_output_path: &Path,
-    test_path: &Path,
+    target_dir: &Path,
 ) {
     debug!("{}", test_case_name);
     let test_cmin_output_path = cmin_output_path.to_path_buf().join(test_case_name);
     let cmin_output_pathname = test_cmin_output_path.to_str().unwrap();
 
-    let target_path = test_path
-        .to_path_buf()
-        .join("target")
-        .join(EDITION)
-        .join(test_case_name);
+    let target_path = target_dir.join(test_case_name);
     let target_name = target_path.to_str().unwrap();
 
     //add -C option to only apply to crash inputs
@@ -1213,12 +1023,11 @@ fn clean_crash_dir(crash_dir: &Path) {
 }
 
 //确认哪些才是真的crash，有些crash可能没法replay
-fn replay_crashes(crate_name: &str) {
-    let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let test_path = PathBuf::from(test_dir);
-    let target_path = test_path.join("target").join(EDITION);
+fn replay_crashes(config: &Config) {
+    let crate_name = &&config.crate_name;
+    let target_path = &config.target_dir;
     //如果有cmin的结果的话,那么直接去找cmin的结果
-    let cmin_path = test_path.join(CMIN_OUTPUT_DIR);
+    let cmin_path = &config.build_dir.join(CMIN_OUTPUT_DIR);
     if cmin_path.is_dir() {
         let cmin_directories = check_maybe_empty_directory(&cmin_path);
         if !cmin_directories.is_empty() {
@@ -1254,7 +1063,7 @@ fn replay_crashes(crate_name: &str) {
 
     warn!("No cmin output files. Use raw crash files");
     //首先尝试直接对原始的结果进行replay
-    let crash_files = find_crash(crate_name);
+    let crash_files = find_crash(config);
     for crash_file in crash_files {
         let crash_file_name = crash_file.to_str().unwrap();
         //找到replay_file
@@ -1284,20 +1093,20 @@ fn replay_crashes(crate_name: &str) {
     }
 }
 
-pub fn output_statistics(crate_name: &str) {
+pub fn output_statistics(config: &Config) {
+    let crate_name = &&config.crate_name;
+    let test_path = &config.build_dir;
     //crate_name
     println!("crate name: {}", crate_name);
     //fuzz driver
-    let fuzz_drivers = check_pre_condition(crate_name);
+    let fuzz_drivers = check_pre_condition(config);
     let fuzz_drivers_number = fuzz_drivers.len();
     println!("fuzz drivers: {}", fuzz_drivers_number);
     //total crashes
-    let all_crash_files = find_crash(crate_name);
+    let all_crash_files = find_crash(config);
     let crash_number = all_crash_files.len();
     println!("crashes: {}", crash_number);
     //crashes after cmin
-    let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let test_path = PathBuf::from(test_dir);
     let cmin_path = test_path.join(CMIN_OUTPUT_DIR);
     if cmin_path.is_dir() {
         let cmin_directories = check_maybe_empty_directory(&cmin_path);
@@ -1340,11 +1149,7 @@ pub fn output_statistics(crate_name: &str) {
     let finished_targets_number = exit_targets.len();
     println!("targets finished : {} ", finished_targets_number);
 
-    let invalid_targets_number = if INVALID_TARGET_NUMBER.contains_key(crate_name) {
-        INVALID_TARGET_NUMBER.get(crate_name).unwrap().to_owned()
-    } else {
-        0
-    };
+    let invalid_targets_number = 0;
 
     println!("invalid targets: {}", invalid_targets_number);
     let not_exit_targets = fuzz_drivers_number - finished_targets_number - invalid_targets_number;
@@ -1371,15 +1176,15 @@ pub fn output_statistics(crate_name: &str) {
     );
 }
 
-pub fn output_statistics_to_files(crate_name: &str, fuzz_time: usize) {
-    let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let test_path = PathBuf::from(test_dir);
+pub fn output_statistics_to_files(config: &Config, fuzz_time: usize) {
+    let crate_name = &&config.crate_name;
+    let test_path = PathBuf::from(&config.test_dir);
     let statistic_file_path = test_path.join(STATISTIC_OUTPUT_FILE);
     if !statistic_file_path.is_file() {
         fs::File::create(&statistic_file_path).unwrap();
     }
 
-    let all_crash_files = find_crash(crate_name);
+    let all_crash_files = find_crash(config);
     let total_crash_number = all_crash_files.len();
 
     let mut crash_counts = HashMap::new();
@@ -1430,19 +1235,18 @@ pub fn output_statistics_to_files(crate_name: &str, fuzz_time: usize) {
     });
 }
 
-fn showmap(crate_name: &str) {
-    let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let test_path = PathBuf::from(test_dir);
+fn showmap(config: &Config) {
+    let test_path = PathBuf::from(&config.build_dir);
     let showmap_path = test_path.join(SHOWMAP_DIR);
     ensure_empty_dir(&showmap_path);
-    let tests = check_pre_condition(crate_name);
+    let tests = check_pre_condition(&config);
     for test in &tests {
         let out_dir = test_path.join(AFL_OUTPUT_DIR).join(test).join("default");
         if !out_dir.is_dir() {
             debug!("{} has no output dir", test);
             continue;
         }
-        let target_path = test_path.join("target").join("debug").join(test);
+        let target_path = &config.target_dir.join(test);
         let showmap_file_path = showmap_path.join(test);
         let output = Command::new("cargo")
             .arg("afl")
@@ -1469,10 +1273,9 @@ fn showmap(crate_name: &str) {
     }
 }
 
-fn init_afl_input(crate_name: &str) {
-    let test_dir = CRATE_TEST_DIR.get(crate_name).unwrap();
-    let test_path = PathBuf::from(test_dir);
-    let afl_init_path = test_path.join(AFL_INPUT_DIR);
+fn init_afl_input(config: &Config) {
+    let build_dir = &config.build_dir;
+    let afl_init_path = &config.afl_input_dir;
     let afl_directory_paths = check_no_empty_directory(&afl_init_path);
 
     let mut afl_files = Vec::new();
@@ -1483,16 +1286,16 @@ fn init_afl_input(crate_name: &str) {
         }
     }
 
-    let tests = check_pre_condition(crate_name);
+    let tests = check_pre_condition(config);
     for test in &tests {
         let replay = test.replace("test", "replay");
         let this_afl_init_path = afl_init_path.join(test);
         ensure_empty_dir(&this_afl_init_path);
-        let replay_target_path = test_path.join("target").join("debug").join(&replay);
-        let test_target_path = test_path.join("target").join("debug").join(test);
+        let replay_target_path = build_dir.join("target").join("debug").join(&replay);
+        let test_target_path = build_dir.join("target").join("debug").join(test);
 
         let mut has_init_file_flag = false;
-
+        info!("replay_target_path: {:?}", replay_target_path.as_os_str());
         for afl_file in &afl_files {
             let exit_status = Command::new(replay_target_path.as_os_str())
                 .arg(afl_file.as_os_str())
