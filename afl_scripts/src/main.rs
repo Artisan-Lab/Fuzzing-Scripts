@@ -288,8 +288,6 @@ fn do_work(user_options: &UserOptions) {
     if user_options.fuzz {
         info!("fuzz {}.", crate_name);
         let tests = check_pre_condition(&config);
-        let test_dir = std::env::current_dir().unwrap();
-        let build_dir = test_dir.join("build");
         check_build(&config, &tests);
         fuzz_it(&config, &tests);
         exit(0);
@@ -545,9 +543,10 @@ fn init_test_dir(config: &Config, tests: &[String]) {
     //对于每个test_file和replay_file新建项目
     let mut replays = Vec::new();
     for test in tests {
-        let test_cargo_path = build_dir.clone().join(test);
-        let replay = test.clone().replace("test", "replay");
-        let replay_cargo_path = build_dir.clone().join(&replay);
+        info!("create fuzz and replay projects for {}", test);
+        let test_cargo_path = build_dir.join(test);
+        let replay = test.replace("test", "replay");
+        let replay_cargo_path = build_dir.join(&replay);
         replays.push(replay);
         Command::new("cargo")
             .args(["new", "--vcs", "none"])
@@ -560,25 +559,6 @@ fn init_test_dir(config: &Config, tests: &[String]) {
             .output()
             .unwrap();
     }
-
-    //生成build script(貌似没必要)
-    /* let build_script_path = build_dir.join(BUILD_SCRIPT);
-    let mut build_script_file = fs::File::create(&build_script_path).unwrap_or_else(|_| {
-        error!("Encounter error when creating {:?}.", build_script_path);
-        exit(-1);
-    });
-    let build_script = build_script_content(&build_dir);
-    build_script_file
-        .write_all(build_script.as_bytes())
-        .unwrap_or_else(|_| {
-            error!("write file {:?} failed.", build_script_file);
-            exit(-1);
-        });
-    Command::new("chmod")
-        .arg("+x")
-        .arg(build_script_path.as_os_str())
-        .status()
-        .unwrap(); */
 
     let add_dependency_file = |crate_name: &str, path: PathBuf| {
         let cargo_toml_path = path.join(CARGO_TOML);
@@ -604,39 +584,37 @@ fn init_test_dir(config: &Config, tests: &[String]) {
     };
 
     //为每个test crate添加依赖
-    for test in tests {
+    for test in tests.iter().chain(&replays) {
         add_dependency_file(&&config.crate_name, build_dir.join(test));
     }
 
     //为每个replay crate添加依赖
-    for replay in &replays {
+    /* for replay in &replays {
         add_dependency_file(&&config.crate_name, build_dir.join(replay));
-    }
+    } */
 
-    //复制测试文件
-    for test in tests {
-        let to_path = build_dir.clone().join(test).join("src").join("main.rs");
-        let mut test_name = test.clone();
-        test_name.push_str(".rs");
-        let from_path = build_dir.clone().join(TEST_FILE_DIR).join(test_name);
+    let copy_src = |filename: &str, src_dir: &PathBuf| {
+        let to_path = build_dir.join(filename).join("src").join("main.rs");
+        let mut filename = filename.to_owned();
+        filename.push_str(".rs");
+        let from_path = src_dir.join(filename);
+        info!("cp {:?} {:?}", from_path, to_path);
         Command::new("cp")
             .arg(from_path.as_os_str())
             .arg(to_path.as_os_str())
             .output()
             .unwrap();
+    };
+    let test_src_dir = config.test_dir.join(TEST_FILE_DIR);
+    //复制测试文件
+    for test in tests {
+        copy_src(test, &test_src_dir);
     }
 
     //复制replay文件
+    let replay_src_dir = config.test_dir.join(REPLAY_FILE_DIR);
     for replay in &replays {
-        let to_path = build_dir.clone().join(replay).join("src").join("main.rs");
-        let mut replay_name = replay.clone();
-        replay_name.push_str(".rs");
-        let from_path = build_dir.clone().join(REPLAY_FILE_DIR).join(replay_name);
-        Command::new("cp")
-            .arg(from_path.as_os_str())
-            .arg(to_path.as_os_str())
-            .output()
-            .unwrap();
+        copy_src(replay, &replay_src_dir);
     }
 }
 
@@ -650,16 +628,6 @@ fn cargo_workspace_file_content(tests: &[String]) -> String {
     }
     content.push_str("]\n");
     content
-}
-
-fn build_script_content(test_path: &Path) -> String {
-    format!(
-        "cd {:?}
-cargo afl build
-cd -",
-        test_path
-    )
-    .replace('\"', "")
 }
 
 fn build_afl_tests(config: &Config) {
@@ -714,12 +682,7 @@ fn fuzz_it(config: &Config, tests: &[String]) {
         }
 
         let test_path_copy = test_path.clone();
-
-        let mut afl_dir_name = test.clone();
-        afl_dir_name.push_str("_cmin");
-        let afl_input_path = PathBuf::from(&test_path)
-            .join(AFL_INPUT_DIR)
-            .join(afl_dir_name);
+        let afl_input_path = config.afl_input_dir.clone();
         let exit_time_file_path = exit_time_path.join(test);
 
         let val_copy = val.clone();
@@ -735,6 +698,7 @@ fn fuzz_it(config: &Config, tests: &[String]) {
                 afl_output_dir.to_str().unwrap(),
                 afl_target_path.to_str().unwrap(),
             ];
+            info!("args = {:?}", args);
             let exit_status = Command::new("cargo")
                 .args(&args)
                 .current_dir(test_path_copy.as_os_str())
@@ -833,7 +797,7 @@ fn find_crash(config: &Config) -> Vec<PathBuf> {
     all_crash_files
 }
 
-fn print_crashes(config:&Config) {
+fn print_crashes(config: &Config) {
     let all_crash_files = find_crash(config);
     if all_crash_files.is_empty() {
         error!("Find no crash files");
@@ -1024,7 +988,6 @@ fn clean_crash_dir(crash_dir: &Path) {
 
 //确认哪些才是真的crash，有些crash可能没法replay
 fn replay_crashes(config: &Config) {
-    let crate_name = &&config.crate_name;
     let target_path = &config.target_dir;
     //如果有cmin的结果的话,那么直接去找cmin的结果
     let cmin_path = &config.build_dir.join(CMIN_OUTPUT_DIR);
@@ -1274,9 +1237,9 @@ fn showmap(config: &Config) {
 }
 
 fn init_afl_input(config: &Config) {
-    let build_dir = &config.build_dir;
-    let afl_init_path = &config.afl_input_dir;
-    let afl_directory_paths = check_no_empty_directory(&afl_init_path);
+    let target_dir = config.target_dir.clone();
+    let arc_afl_init_path = Arc::new(config.afl_input_dir.clone());
+    let afl_directory_paths = check_no_empty_directory(&arc_afl_init_path);
 
     let mut afl_files = Vec::new();
 
@@ -1286,69 +1249,85 @@ fn init_afl_input(config: &Config) {
         }
     }
 
-    let tests = check_pre_condition(config);
-    for test in &tests {
-        let replay = test.replace("test", "replay");
-        let this_afl_init_path = afl_init_path.join(test);
-        ensure_empty_dir(&this_afl_init_path);
-        let replay_target_path = build_dir.join("target").join("debug").join(&replay);
-        let test_target_path = build_dir.join("target").join("debug").join(test);
+    let arc_afl_files = Arc::new(afl_files);
 
-        let mut has_init_file_flag = false;
-        info!("replay_target_path: {:?}", replay_target_path.as_os_str());
-        for afl_file in &afl_files {
-            let exit_status = Command::new(replay_target_path.as_os_str())
-                .arg(afl_file.as_os_str())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status()
-                .unwrap();
-            if exit_status.success() {
-                has_init_file_flag = true;
-                Command::new("cp")
+    let tests = check_pre_condition(config);
+    //let thread_num=std::thread::available_parallelism().unwrap().get();
+    //info!("thread num=",{});
+    let mut handles = Vec::<_>::new();
+    let mut thread_count = 0;
+    for test in tests {
+        let replay = test.replace("test", "replay");
+        let replay_target_path = target_dir.join(&replay);
+        let test_target_path = target_dir.join(&test);
+        let afl_init_path = arc_afl_init_path.clone();
+        let this_afl_init_path = afl_init_path.join(&test);
+        let afl_files = arc_afl_files.clone();
+        thread_count += 1;
+        let handle = thread::spawn(move || {
+            ensure_empty_dir(&this_afl_init_path);
+            info!("replay_target_path: {:?}", replay_target_path.as_os_str());
+            let mut has_init_file_flag = false;
+            for afl_file in afl_files.iter() {
+                let exit_status = Command::new(replay_target_path.as_os_str())
                     .arg(afl_file.as_os_str())
-                    .arg(this_afl_init_path.as_os_str())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
                     .status()
                     .unwrap();
+                if exit_status.success() {
+                    has_init_file_flag = true;
+                    Command::new("cp")
+                        .arg(afl_file.as_os_str())
+                        .arg(this_afl_init_path.as_os_str())
+                        .status()
+                        .unwrap();
+                }
             }
-        }
 
-        //tmin:慢
-        //let mut tmin_name = test.clone();
-        //tmin_name.push_str("_tmin");
-        //let this_tmin_path = afl_init_path.join(&tmin_name);
-        //ensure_empty_dir(&this_tmin_path);
-        //let all_raw_afl_files = check_maybe_empty_directory(&this_afl_init_path);
-        //for raw_afl_file in &all_raw_afl_files {
-        //    let filename = last_file_name(raw_afl_file);
-        //    let output_file_path = this_tmin_path.join(filename);
-        //    let args = vec!["afl", "tmin", "-i", raw_afl_file.to_str().unwrap(), "-o", output_file_path.to_str().unwrap(), "--", test_target_path.to_str().unwrap()];
-        //    let _ = Command::new("cargo").args(&args).stdout(Stdio::null()).stderr(Stdio::null()).status().unwrap();
-        //}
+            //tmin:慢
+            //let mut tmin_name = test.clone();
+            //tmin_name.push_str("_tmin");
+            //let this_tmin_path = afl_init_path.join(&tmin_name);
+            //ensure_empty_dir(&this_tmin_path);
+            //let all_raw_afl_files = check_maybe_empty_directory(&this_afl_init_path);
+            //for raw_afl_file in &all_raw_afl_files {
+            //    let filename = last_file_name(raw_afl_file);
+            //    let output_file_path = this_tmin_path.join(filename);
+            //    let args = vec!["afl", "tmin", "-i", raw_afl_file.to_str().unwrap(), "-o", output_file_path.to_str().unwrap(), "--", test_target_path.to_str().unwrap()];
+            //    let _ = Command::new("cargo").args(&args).stdout(Stdio::null()).stderr(Stdio::null()).status().unwrap();
+            //}
 
-        if !has_init_file_flag {
-            debug!("There's no afl input for {:?}", test);
-        } else {
-            let mut cmin_name = test.clone();
-            cmin_name.push_str("_cmin");
-            let this_cmin_path = afl_init_path.join(&cmin_name);
-            ensure_empty_dir(&this_cmin_path);
-            let cmin_args = vec![
-                "afl",
-                "cmin",
-                "-i",
-                this_afl_init_path.to_str().unwrap(),
-                "-o",
-                this_cmin_path.to_str().unwrap(),
-                "--",
-                test_target_path.to_str().unwrap(),
-            ];
-            let _ = Command::new("cargo")
-                .args(&cmin_args)
-                .stdout(Stdio::null())
-                .status()
-                .unwrap();
-        }
+            if !has_init_file_flag {
+                debug!("There's no afl input for {:?}", test);
+            } else {
+                let mut cmin_name = test.clone();
+                cmin_name.push_str("_cmin");
+                let this_cmin_path = afl_init_path.join(&cmin_name);
+                ensure_empty_dir(&this_cmin_path);
+                let cmin_args = vec![
+                    "afl",
+                    "cmin",
+                    "-i",
+                    this_afl_init_path.to_str().unwrap(),
+                    "-o",
+                    this_cmin_path.to_str().unwrap(),
+                    "--",
+                    test_target_path.to_str().unwrap(),
+                ];
+                info!("thread#{} afl cmin start", thread_count);
+                let _ = Command::new("cargo")
+                    .args(&cmin_args)
+                    .stdout(Stdio::null())
+                    .status()
+                    .unwrap();
+                info!("thread#{} afl cmin end", thread_count);
+            }
+        });
+        handles.push(handle);
+    }
+    for handle in handles {
+        handle.join().unwrap();
     }
 }
 
